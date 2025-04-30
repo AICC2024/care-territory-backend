@@ -6,11 +6,11 @@ function App() {
   const [staff, setStaff] = useState([]);
 
   useEffect(() => {
-    axios.get("http://localhost:5050/api/patients")
+    axios.get("https://care-territory-backend.onrender.com/api/patients")
       .then(res => setPatients(res.data))
       .catch(err => console.error("API fetch error:", err));
 
-    axios.get("http://localhost:5050/api/staff")
+    axios.get("https://care-territory-backend.onrender.com/api/staff")
       .then(res => setStaff(res.data))
       .catch(err => console.error("Staff API fetch error:", err));
   }, []);
