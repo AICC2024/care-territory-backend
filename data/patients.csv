@@ -1,0 +1,5 @@
+patient_id,name,address,type_of_care,status
+101,Alice Johnson,"123 Main St, Nashville, TN",Hospice,Active
+102,Bob Smith,"456 Oak Ave, Nashville, TN",Home Health,Active
+103,Carmen Lopez,"789 Pine Rd, Franklin, TN",Hospice,Active
+104,David Patel,"321 Cedar Ln, Brentwood, TN",Home Health,Active
