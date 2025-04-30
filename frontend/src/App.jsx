@@ -1,3 +1,4 @@
+const baseUrl = import.meta.env.VITE_API_BASE_URL;
 import { useEffect, useState } from "react";
 import axios from "axios";
 
@@ -6,11 +7,14 @@ function App() {
   const [staff, setStaff] = useState([]);
 
   useEffect(() => {
-    axios.get("https://care-territory-backend.onrender.com/api/patients")
-      .then(res => setPatients(res.data))
+    axios.get(`${baseUrl}/api/patients`)
+      .then(res => {
+        console.log("Patients API response:", res.data);
+        setPatients(res.data);
+      })
       .catch(err => console.error("API fetch error:", err));
 
-    axios.get("https://care-territory-backend.onrender.com/api/staff")
+    axios.get(`${baseUrl}/api/staff`)
       .then(res => setStaff(res.data))
       .catch(err => console.error("Staff API fetch error:", err));
   }, []);
@@ -19,9 +23,9 @@ function App() {
     <div style={{ padding: "2rem" }}>
       <h1>Patient List</h1>
       <ul>
-        {patients.map((p) => (
+        {Array.isArray(patients) && patients.map((p) => (
           <li key={p.patient_id}>
-            {p.name} – {p.address} ({p.type_of_care})
+            {p.name} (Cluster {p.cluster_id}) – {p.address} ({p.type_of_care})
           </li>
         ))}
       </ul>

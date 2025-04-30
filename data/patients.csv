@@ -1,5 +1,5 @@
-patient_id,name,address,type_of_care,status
-101,Alice Johnson,"123 Main St, Nashville, TN",Hospice,Active
-102,Bob Smith,"456 Oak Ave, Nashville, TN",Home Health,Active
-103,Carmen Lopez,"789 Pine Rd, Franklin, TN",Hospice,Active
-104,David Patel,"321 Cedar Ln, Brentwood, TN",Home Health,Active
+patient_id,name,address,type_of_care,status,latitude,longitude,cluster_id
+101,Alice Johnson,"123 Main St, Nashville, TN",Hospice,Active,36.1722288,-86.77028539999999,2
+102,Bob Smith,"456 Oak Ave, Nashville, TN",Home Health,Active,36.14885710000001,-86.77016019999999,0
+103,Carmen Lopez,"789 Pine Rd, Franklin, TN",Hospice,Active,35.891242,-87.1431671,1
+104,David Patel,"321 Cedar Ln, Brentwood, TN",Home Health,Active,36.1214103,-86.7978453,0

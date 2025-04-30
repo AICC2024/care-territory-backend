@@ -9,6 +9,8 @@ CORS(app)
 @app.route("/api/patients")
 def get_patients():
     df = pd.read_csv("data/patients.csv")
+    columns = ["patient_id", "name", "address", "type_of_care", "status", "latitude", "longitude", "cluster_id"]
+    df = df[[col for col in columns if col in df.columns]]
     return jsonify(df.to_dict(orient="records"))
 
 @app.route("/api/staff")
