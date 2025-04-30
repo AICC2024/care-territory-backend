@@ -11,7 +11,7 @@ df = df.dropna(subset=["latitude", "longitude"])
 coordinates = df[["latitude", "longitude"]].values
 
 # Define number of clusters (adjust as needed)
-k = 3
+k = 4
 kmeans = KMeans(n_clusters=k, random_state=42)
 df["cluster_id"] = kmeans.fit_predict(coordinates)
 

@@ -1,6 +1,7 @@
 const baseUrl = import.meta.env.VITE_API_BASE_URL;
 import { useEffect, useState } from "react";
 import axios from "axios";
+import ClusterMap from "./Map";
 
 function App() {
   const [patients, setPatients] = useState([]);
@@ -37,6 +38,8 @@ function App() {
           </li>
         ))}
       </ul>
+      <h2 style={{ marginTop: "2rem" }}>Patient Map (Cluster View)</h2>
+      <ClusterMap />
     </div>
   );
 }
