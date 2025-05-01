@@ -132,52 +132,62 @@ function ClusterMap() {
             }
 
             return (
-              <Marker
-                key={`staff-${index}`}
-                position={{ lat, lng }}
-                title={`${s.name} (Capacity: ${s.max_capacity})`}
-                icon={{
-                  url: "/icons/nurse.png",
-                  scaledSize: new window.google.maps.Size(32, 32)
-                }}
-                onClick={() => {
-                  const clusterPatients = patients.filter(p2 => {
-                    const lat2 = parseFloat(p2.latitude);
-                    const lng2 = parseFloat(p2.longitude);
-                    return !isNaN(lat2) && !isNaN(lng2) && p2.cluster_id === nearestCluster;
-                  });
-
-                  const bounds = new window.google.maps.LatLngBounds();
-                  clusterPatients.forEach(p => {
-                    bounds.extend({ lat: parseFloat(p.latitude), lng: parseFloat(p.longitude) });
-                  });
-                  bounds.extend({ lat, lng }); // Include staff location
-
-                  const ne = bounds.getNorthEast();
-                  const sw = bounds.getSouthWest();
-                  const latDiff = Math.abs(ne.lat() - sw.lat());
-                  const lngDiff = Math.abs(ne.lng() - sw.lng());
-
-                  const isTinyCluster = latDiff < 0.001 && lngDiff < 0.001;
-
-                  if (isTinyCluster) {
-                    const avgLat = clusterPatients.reduce((sum, p) => sum + parseFloat(p.latitude), 0) / clusterPatients.length;
-                    const avgLng = clusterPatients.reduce((sum, p) => sum + parseFloat(p.longitude), 0) / clusterPatients.length;
-                    mapRef.current.panTo({ lat: avgLat, lng: avgLng });
-                    mapRef.current.setZoom(17);
-                  } else {
-                    const padding = 100;
-                    mapRef.current.fitBounds(bounds, padding);
-                    // Smoother zoom for tight clusters: cap zoom to 17 if necessary
-                    window.google.maps.event.addListenerOnce(mapRef.current, 'idle', () => {
-                      const currentZoom = mapRef.current.getZoom();
-                      if (currentZoom > 17) {
-                        mapRef.current.setZoom(17);
-                      }
+              <div key={`staff-${index}`}>
+                <Marker
+                  position={{ lat, lng }}
+                  title={`${s.name} (Capacity: ${s.max_capacity})`}
+                  icon={{
+                    url: "/icons/nurse.png",
+                    scaledSize: new window.google.maps.Size(32, 32)
+                  }}
+                  onClick={() => {
+                    const clusterPatients = patients.filter(p2 => {
+                      const lat2 = parseFloat(p2.latitude);
+                      const lng2 = parseFloat(p2.longitude);
+                      return !isNaN(lat2) && !isNaN(lng2) && p2.cluster_id === nearestCluster;
                     });
-                  }
-                }}
-              />
+
+                    const bounds = new window.google.maps.LatLngBounds();
+                    clusterPatients.forEach(p => {
+                      bounds.extend({ lat: parseFloat(p.latitude), lng: parseFloat(p.longitude) });
+                    });
+                    bounds.extend({ lat, lng }); // Include staff location
+
+                    const ne = bounds.getNorthEast();
+                    const sw = bounds.getSouthWest();
+                    const latDiff = Math.abs(ne.lat() - sw.lat());
+                    const lngDiff = Math.abs(ne.lng() - sw.lng());
+
+                    const isTinyCluster = latDiff < 0.001 && lngDiff < 0.001;
+
+                    if (isTinyCluster) {
+                      const avgLat = clusterPatients.reduce((sum, p) => sum + parseFloat(p.latitude), 0) / clusterPatients.length;
+                      const avgLng = clusterPatients.reduce((sum, p) => sum + parseFloat(p.longitude), 0) / clusterPatients.length;
+                      mapRef.current.panTo({ lat: avgLat, lng: avgLng });
+                      mapRef.current.setZoom(17);
+                    } else {
+                      const padding = 100;
+                      mapRef.current.fitBounds(bounds, padding);
+                      // Smoother zoom for tight clusters: cap zoom to 17 if necessary
+                      window.google.maps.event.addListenerOnce(mapRef.current, 'idle', () => {
+                        const currentZoom = mapRef.current.getZoom();
+                        if (currentZoom > 17) {
+                          mapRef.current.setZoom(17);
+                        }
+                      });
+                    }
+                    setActiveMarker(`staff-${s.staff_id}`);
+                  }}
+                />
+                {activeMarker === `staff-${s.staff_id}` && (
+                  <InfoWindow
+                    position={{ lat, lng }}
+                    onCloseClick={() => setActiveMarker(null)}
+                  >
+                    <div>{s.name}</div>
+                  </InfoWindow>
+                )}
+              </div>
             );
           })}
         </GoogleMap>
