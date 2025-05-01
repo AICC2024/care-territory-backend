@@ -26,12 +26,42 @@ function ClusterMap() {
   const [activeMarker, setActiveMarker] = useState(null);
   const mapRef = useRef(null);
 
+  const [staff, setStaff] = useState([]);
+  const [clusterCenters, setClusterCenters] = useState({});
+
   useEffect(() => {
     const baseUrl = import.meta.env.VITE_API_BASE_URL;
     axios.get(`${baseUrl}/api/patients`)
       .then(res => setPatients(res.data))
       .catch(err => console.error("Failed to fetch patients:", err));
   }, []);
+
+  // Fetch staff
+  useEffect(() => {
+    const baseUrl = import.meta.env.VITE_API_BASE_URL;
+    axios.get(`${baseUrl}/api/staff`)
+      .then(res => setStaff(res.data))
+      .catch(err => console.error("Failed to fetch staff:", err));
+  }, []);
+
+  // Compute cluster centers
+  useEffect(() => {
+    const centers = {};
+    const grouped = patients.reduce((acc, p) => {
+      const id = p.cluster_id;
+      if (!acc[id]) acc[id] = [];
+      acc[id].push([parseFloat(p.latitude), parseFloat(p.longitude)]);
+      return acc;
+    }, {});
+
+    for (const id in grouped) {
+      const points = grouped[id];
+      const avgLat = points.reduce((sum, pt) => sum + pt[0], 0) / points.length;
+      const avgLng = points.reduce((sum, pt) => sum + pt[1], 0) / points.length;
+      centers[id] = { lat: avgLat, lng: avgLng };
+    }
+    setClusterCenters(centers);
+  }, [patients]);
 
   return (
     <>
@@ -84,6 +114,72 @@ function ClusterMap() {
               )}
             </div>
           ))}
+          {staff.map((s, index) => {
+            const lat = parseFloat(s.latitude);
+            const lng = parseFloat(s.longitude);
+            let nearestCluster = 0;
+            let minDistance = Infinity;
+
+            for (const id in clusterCenters) {
+              const center = clusterCenters[id];
+              const d = Math.sqrt(
+                Math.pow(center.lat - lat, 2) + Math.pow(center.lng - lng, 2)
+              );
+              if (d < minDistance) {
+                minDistance = d;
+                nearestCluster = parseInt(id);
+              }
+            }
+
+            return (
+              <Marker
+                key={`staff-${index}`}
+                position={{ lat, lng }}
+                title={`${s.name} (Capacity: ${s.max_capacity})`}
+                icon={{
+                  url: "/icons/nurse.png",
+                  scaledSize: new window.google.maps.Size(32, 32)
+                }}
+                onClick={() => {
+                  const clusterPatients = patients.filter(p2 => {
+                    const lat2 = parseFloat(p2.latitude);
+                    const lng2 = parseFloat(p2.longitude);
+                    return !isNaN(lat2) && !isNaN(lng2) && p2.cluster_id === nearestCluster;
+                  });
+
+                  const bounds = new window.google.maps.LatLngBounds();
+                  clusterPatients.forEach(p => {
+                    bounds.extend({ lat: parseFloat(p.latitude), lng: parseFloat(p.longitude) });
+                  });
+                  bounds.extend({ lat, lng }); // Include staff location
+
+                  const ne = bounds.getNorthEast();
+                  const sw = bounds.getSouthWest();
+                  const latDiff = Math.abs(ne.lat() - sw.lat());
+                  const lngDiff = Math.abs(ne.lng() - sw.lng());
+
+                  const isTinyCluster = latDiff < 0.001 && lngDiff < 0.001;
+
+                  if (isTinyCluster) {
+                    const avgLat = clusterPatients.reduce((sum, p) => sum + parseFloat(p.latitude), 0) / clusterPatients.length;
+                    const avgLng = clusterPatients.reduce((sum, p) => sum + parseFloat(p.longitude), 0) / clusterPatients.length;
+                    mapRef.current.panTo({ lat: avgLat, lng: avgLng });
+                    mapRef.current.setZoom(17);
+                  } else {
+                    const padding = 100;
+                    mapRef.current.fitBounds(bounds, padding);
+                    // Smoother zoom for tight clusters: cap zoom to 17 if necessary
+                    window.google.maps.event.addListenerOnce(mapRef.current, 'idle', () => {
+                      const currentZoom = mapRef.current.getZoom();
+                      if (currentZoom > 17) {
+                        mapRef.current.setZoom(17);
+                      }
+                    });
+                  }
+                }}
+              />
+            );
+          })}
         </GoogleMap>
       </LoadScript>
     </>
