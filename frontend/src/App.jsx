@@ -1,9 +1,9 @@
-const baseUrl = import.meta.env.VITE_API_BASE_URL;
 import { useEffect, useState } from "react";
 import axios from "axios";
 import ClusterMap from "./Map";
 
 function App() {
+  const baseUrl = import.meta.env.VITE_API_BASE_URL;
   const [patients, setPatients] = useState([]);
   const [staff, setStaff] = useState([]);
 
