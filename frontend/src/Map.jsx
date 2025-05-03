@@ -1,4 +1,6 @@
 import React from "react";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import { GoogleMap, LoadScript, Marker, InfoWindow, Polygon } from "@react-google-maps/api";
 import { useEffect, useState, useRef } from "react";
 import { Delaunay } from "d3-delaunay";
@@ -124,12 +126,21 @@ function ClusterMap() {
     setStaffLoads(loadSummary);
   }, [patients, staff]);
 
-  useEffect(() => {
-    const baseUrl = import.meta.env.VITE_API_BASE_URL;
-    axios.get(`${baseUrl}/api/patients`)
-      .then(res => setPatients(res.data))
-      .catch(err => console.error("Failed to fetch patients:", err));
-  }, []);
+useEffect(() => {
+  const baseUrl = import.meta.env.VITE_API_BASE_URL;
+  axios.get(`${baseUrl}/api/patients`)
+    .then(res => {
+      setPatients(res.data);
+      const missingCoords = res.data.filter(p =>
+        isNaN(parseFloat(p.latitude)) || isNaN(parseFloat(p.longitude))
+      );
+      const toastId = "missing-coords";
+      if (missingCoords.length > 0 && !toast.isActive(toastId)) {
+        toast.warn(`⚠️ ${missingCoords.length} patient(s) have missing coordinates`, { toastId });
+      }
+    })
+    .catch(err => console.error("Failed to fetch patients:", err));
+}, []);
 
   // Fetch staff
   useEffect(() => {
@@ -198,7 +209,10 @@ function ClusterMap() {
     // Only assign if patient.assigned_staff is missing or "Unassigned"
     const updated = patients.map(p => {
       if (p.assigned_staff && p.assigned_staff !== "Unassigned") return p;
-      const pt = turf.point([parseFloat(p.longitude), parseFloat(p.latitude)]);
+      const lat = parseFloat(p.latitude);
+      const lng = parseFloat(p.longitude);
+      if (isNaN(lat) || isNaN(lng)) return p;
+      const pt = turf.point([lng, lat]);
       // Ensure polygon is closed by repeating the first point at the end
       const zone = staffZones.find(z => {
         const polygon = turf.polygon([[...z.path.map(coord => [coord.lng, coord.lat]), [z.path[0].lng, z.path[0].lat]]]);
@@ -390,9 +404,44 @@ function ClusterMap() {
       .then(() => {
         setPatients(updated);
         console.log("✅ Assignments reset to territory and saved.");
+        toast.success("Assignments reset to territory");
       })
       .catch(err => {
         console.error("❌ Failed to reset assignments to territory:", err);
+        toast.error("❌ Failed to reset assignments to territory");
+      });
+  };
+
+  // --- Process unassigned patients logic ---
+  const handleProcessUnassigned = () => {
+    const baseUrl = import.meta.env.VITE_API_BASE_URL;
+    axios.post(`${baseUrl}/api/process-unassigned-patients`)
+      .then(res => {
+        console.log("✅ Processed unassigned patients:", res.data);
+        toast.success(
+          <>
+            <img
+              src="/icons/location-pin.png"
+              alt="Pin"
+              style={{ width: "16px", verticalAlign: "middle", marginRight: "6px" }}
+            />
+            Processed {res.data.count} unassigned patients
+          </>
+        );
+        return axios.get(`${baseUrl}/api/patients`);
+      })
+      .then(res => {
+        setPatients(res.data);
+        const missingCoords = res.data.filter(p =>
+          isNaN(parseFloat(p.latitude)) || isNaN(parseFloat(p.longitude))
+        );
+        if (missingCoords.length > 0) {
+          toast.warn(`⚠️ ${missingCoords.length} patients still missing coordinates`);
+        }
+      })
+      .catch(err => {
+        console.error("❌ Failed to process unassigned patients:", err);
+        toast.error("❌ Failed to process unassigned patients");
       });
   };
 
@@ -596,6 +645,24 @@ function ClusterMap() {
           >
             🧭 Reset to Territory
           </button>
+          <button
+            onClick={handleProcessUnassigned}
+            style={{
+              padding: "6px 10px",
+              border: "1px solid #ccc",
+              borderRadius: "4px",
+              backgroundColor: "#e6f7ff",
+              color: "#0073e6",
+              fontSize: "13px",
+              cursor: "pointer",
+              height: "32px",
+              display: "flex",
+              alignItems: "center"
+            }}
+          >
+            <img src="/icons/location-pin.png" alt="Pin" style={{ width: "16px", marginRight: "6px" }} />
+            Process Unassigned Patients
+          </button>
         </div>
       </div>
       <LoadScript googleMapsApiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY}>
@@ -672,11 +739,20 @@ function ClusterMap() {
                   title={`${p.name} (${p.type_of_care}) — Assigned to ${p.assigned_staff || "Unassigned"}`}
                   onClick={() => {
                     const clusterPatients = patients.filter(
-                      p2 => p2.assigned_staff?.toLowerCase() === p.assigned_staff?.toLowerCase()
+                      p2 => {
+                        const lat2 = parseFloat(p2.latitude);
+                        const lng2 = parseFloat(p2.longitude);
+                        if (isNaN(lat2) || isNaN(lng2)) return false;
+                        return p2.assigned_staff?.toLowerCase() === p.assigned_staff?.toLowerCase();
+                      }
                     );
                     const bounds = new window.google.maps.LatLngBounds();
                     clusterPatients.forEach(p3 => {
-                      bounds.extend({ lat: parseFloat(p3.latitude), lng: parseFloat(p3.longitude) });
+                      const lat3 = parseFloat(p3.latitude);
+                      const lng3 = parseFloat(p3.longitude);
+                      if (!isNaN(lat3) && !isNaN(lng3)) {
+                        bounds.extend({ lat: lat3, lng: lng3 });
+                      }
                     });
                     mapRef.current.fitBounds(bounds);
                     window.google.maps.event.addListenerOnce(mapRef.current, 'idle', () => {
@@ -698,7 +774,7 @@ function ClusterMap() {
                     options={{ disableAutoPan: true }}
                   >
                     <div>
-                      <strong>{p.name}</strong><br />
+                      <strong style={{ color: (isNaN(lat) || isNaN(lng)) ? 'orange' : 'inherit' }}>{p.name}</strong><br />
                       Type: {p.type_of_care}<br />
                       Assigned to: <em>{p.assigned_staff || "Unassigned"}</em>
                     </div>
@@ -765,6 +841,7 @@ function ClusterMap() {
           })}
         </GoogleMap>
       </LoadScript>
+      <ToastContainer position="bottom-right" autoClose={3000} />
     </>
   );
 }

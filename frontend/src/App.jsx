@@ -24,11 +24,23 @@ function App() {
     <div style={{ padding: "2rem" }}>
       <h1>Patient List</h1>
       <ul>
-        {Array.isArray(patients) && patients.map((p) => (
-          <li key={p.patient_id}>
-            {p.name} (Cluster {p.cluster_id}) – {p.address} ({p.type_of_care})
-          </li>
-        ))}
+        {Array.isArray(patients) && patients.map((p) => {
+          const lat = parseFloat(p.latitude);
+          const lng = parseFloat(p.longitude);
+          const highlight = isNaN(lat) || isNaN(lng);
+
+          return (
+            <li
+              key={p.patient_id}
+              style={{
+                color: highlight ? "orange" : "inherit",
+                fontWeight: highlight ? "bold" : "normal"
+              }}
+            >
+              {p.name} (Cluster {p.cluster_id}) – {p.address} ({p.type_of_care})
+            </li>
+          );
+        })}
       </ul>
       <h2 style={{ marginTop: "2rem" }}>Staff List</h2>
       <ul>

@@ -4,6 +4,7 @@ import pandas as pd
 import os
 import psycopg2
 from dotenv import load_dotenv
+import requests
 
 load_dotenv()
 
@@ -91,6 +92,129 @@ def save_assignments():
     cur.close()
     conn.close()
     return jsonify({"status": "success"})
+
+def geocode_address(address):
+    api_key = os.environ.get("GOOGLE_MAPS_API_KEY")
+    if not api_key:
+        print("❌ Missing GOOGLE_MAPS_API_KEY in environment")
+        return None, None
+    url = f"https://maps.googleapis.com/maps/api/geocode/json?address={address}&key={api_key}"
+    print(f"🌐 Geocoding request to: {url}")
+    try:
+        response = requests.get(url)
+        data = response.json()
+        print("📦 Geocode API response:", data)
+        if data['status'] == 'OK':
+            loc = data['results'][0]['geometry']['location']
+            return loc['lat'], loc['lng']
+        else:
+            print(f"❌ Geocoding failed: {data['status']}")
+    except Exception as e:
+        print(f"❌ Geocoding error: {e}")
+    return None, None
+
+@app.route("/api/add-patient", methods=["POST"])
+def add_patient():
+    data = request.json
+    name = data.get("name")
+    address = data.get("address")
+    type_of_care = data.get("type_of_care")
+    status = data.get("status", "Active")
+    zip_code = data.get("zip_code")
+    lat = data.get("latitude")
+    lng = data.get("longitude")
+    cluster_id = data.get("cluster_id")
+
+    if not lat or not lng:
+        lat, lng = geocode_address(address)
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    assigned_staff = None
+    if lat and lng:
+        cur.execute("SELECT name, latitude, longitude FROM staff WHERE latitude IS NOT NULL AND longitude IS NOT NULL")
+        staff_rows = cur.fetchall()
+        min_dist = float("inf")
+        for sname, slat, slng in staff_rows:
+            dist = (lat - slat) ** 2 + (lng - slng) ** 2
+            if dist < min_dist:
+                min_dist = dist
+                assigned_staff = sname
+
+    cur.execute("""
+        INSERT INTO patients (name, address, type_of_care, status, latitude, longitude, cluster_id, zip_code, assigned_staff)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+    """, (name, address, type_of_care, status, lat, lng, cluster_id, zip_code, assigned_staff))
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    return jsonify({"status": "inserted", "name": name})
+
+@app.route("/api/add-staff", methods=["POST"])
+def add_staff():
+    data = request.json
+    name = data.get("name")
+    home_base_address = data.get("home_base_address")
+    max_capacity = data.get("max_capacity")
+    zip_code = data.get("zip_code")
+    lat = data.get("latitude")
+    lng = data.get("longitude")
+
+    if not lat or not lng:
+        lat, lng = geocode_address(home_base_address)
+
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO staff (name, home_base_address, max_capacity, latitude, longitude, zip_code)
+        VALUES (%s, %s, %s, %s, %s, %s)
+    """, (name, home_base_address, max_capacity, lat, lng, zip_code))
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    return jsonify({"status": "inserted", "name": name})
+
+
+# --- Process unassigned patients route ---
+@app.route("/api/process-unassigned-patients", methods=["POST"])
+def process_unassigned_patients():
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT patient_id, address, latitude, longitude
+        FROM patients
+        WHERE latitude IS NULL OR longitude IS NULL OR assigned_staff IS NULL
+    """)
+    rows = cur.fetchall()
+
+    updated = 0
+    for pid, address, lat, lng in rows:
+        if lat is None or lng is None:
+            lat, lng = geocode_address(address)
+        assigned_staff = None
+        if lat and lng:
+            cur.execute("SELECT name, latitude, longitude FROM staff WHERE latitude IS NOT NULL AND longitude IS NOT NULL")
+            staff_rows = cur.fetchall()
+            min_dist = float("inf")
+            for sname, slat, slng in staff_rows:
+                dist = (lat - slat) ** 2 + (lng - slng) ** 2
+                if dist < min_dist:
+                    min_dist = dist
+                    assigned_staff = sname
+        cur.execute("""
+            UPDATE patients
+            SET latitude = %s, longitude = %s, assigned_staff = %s
+            WHERE patient_id = %s
+        """, (lat, lng, assigned_staff, pid))
+        updated += 1
+
+    conn.commit()
+    cur.close()
+    conn.close()
+    return jsonify({"status": "processed", "count": updated})
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5050))
