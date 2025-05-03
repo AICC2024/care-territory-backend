@@ -371,6 +371,31 @@ function ClusterMap() {
     setShowRebalancePrompt(false);
   };
 
+  // --- Reset assignments to territory logic ---
+  const handleResetToTerritory = () => {
+    const updated = patients.map(p => {
+      const pt = turf.point([parseFloat(p.longitude), parseFloat(p.latitude)]);
+      const zone = staffZones.find(z => {
+        const polygon = turf.polygon([[...z.path.map(coord => [coord.lng, coord.lat]), [z.path[0].lng, z.path[0].lat]]]);
+        return turf.booleanPointInPolygon(pt, polygon);
+      });
+      return {
+        ...p,
+        assigned_staff: zone?.id ?? "Unassigned"
+      };
+    });
+
+    const baseUrl = import.meta.env.VITE_API_BASE_URL;
+    axios.post(`${baseUrl}/api/save-assignments`, updated)
+      .then(() => {
+        setPatients(updated);
+        console.log("✅ Assignments reset to territory and saved.");
+      })
+      .catch(err => {
+        console.error("❌ Failed to reset assignments to territory:", err);
+      });
+  };
+
   return (
     <>
       {showRebalancePrompt && (
@@ -555,6 +580,21 @@ function ClusterMap() {
             }}
           >
             🔄 Reset View
+          </button>
+          <button
+            onClick={handleResetToTerritory}
+            style={{
+              padding: "6px 10px",
+              border: "1px solid #ccc",
+              borderRadius: "4px",
+              backgroundColor: "#fff7e6",
+              color: "#d48806",
+              fontSize: "13px",
+              cursor: "pointer",
+              height: "32px"
+            }}
+          >
+            🧭 Reset to Territory
           </button>
         </div>
       </div>
