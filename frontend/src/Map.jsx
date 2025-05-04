@@ -403,7 +403,14 @@ useEffect(() => {
       .then(() => {
         setPatients(updated);
         console.log("✅ Assignments reset to territory and saved.");
-        toast.success("Assignments reset to territory");
+        toast.success(
+          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            <span style={{ fontSize: "16px" }}>🧭</span>
+            <span style={{ color: "#d48806" }}>
+              Assignments reset to territory
+            </span>
+          </div>
+        );
       })
       .catch(err => {
         console.error("❌ Failed to reset assignments to territory:", err);
@@ -418,14 +425,25 @@ useEffect(() => {
       .then(res => {
         console.log("✅ Processed unassigned patients:", res.data);
         toast.success(
-          <>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              background: "#e6f7ff",
+              borderRadius: "4px",
+              padding: "4px 10px 4px 4px"
+            }}
+          >
             <img
               src="/icons/location-pin.png"
               alt="Pin"
-              style={{ width: "16px", verticalAlign: "middle", marginRight: "6px" }}
+              style={{ width: "16px", verticalAlign: "middle" }}
             />
-            Processed {res.data.count} unassigned patients
-          </>
+            <span style={{ color: "#0073e6" }}>
+              Processed {res.data.count} unassigned patients
+            </span>
+          </div>
         );
         // After toast, refresh patients from API to update coordinates & assignments
         return axios.get(`${baseUrl}/api/patients`);
@@ -452,14 +470,16 @@ useEffect(() => {
       .then(res => {
         console.log("✅ Processed unassigned staff:", res.data);
         toast.success(
-          <>
+          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
             <img
               src="/icons/nurse.png"
               alt="Nurse"
-              style={{ width: "16px", verticalAlign: "middle", marginRight: "6px" }}
+              style={{ width: "16px", verticalAlign: "middle" }}
             />
-            Processed {res.data.count} unassigned staff
-          </>
+            <span style={{ color: "#7b2cbf" }}>
+              Processed {res.data.count} unassigned staff
+            </span>
+          </div>
         );
         return axios.get(`${baseUrl}/api/staff`);
       })
@@ -528,193 +548,226 @@ useEffect(() => {
       </div>
       <div
         style={{
-          display: "inline-block",
-          padding: "10px 20px",
-          border: "1px solid #ccc",
-          borderRadius: "6px",
-          backgroundColor: "#f9f9f9",
-          marginBottom: "1rem",
-          boxShadow: "0 2px 6px rgba(0,0,0,0.1)"
+          display: "flex",
+          flexWrap: "wrap",
+          gap: "20px",
+          justifyContent: "flex-start",
+          alignItems: "flex-start",
+          marginBottom: "1rem"
         }}
       >
-        <div style={{ marginBottom: "8px", fontWeight: "bold", fontSize: "14px" }}>
-          🛠 Map Layer Controls
-        </div>
-        <div style={{ display: "flex", gap: "30px", alignItems: "center" }}>
-          <label
-            htmlFor="toggle-boundaries"
-            style={{ display: "flex", alignItems: "center", gap: "10px", fontWeight: "bold" }}
-          >
-            Show Boundaries
-            <div style={{ position: "relative", width: "40px", height: "20px" }}>
-              <input
-                id="toggle-boundaries"
-                name="toggle-boundaries"
-                type="checkbox"
-                checked={showBoundaries}
-                onChange={() => setShowBoundaries(!showBoundaries)}
-                style={{
-                  opacity: 0,
-                  width: "40px",
-                  height: "20px",
-                  margin: 0,
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  zIndex: 2,
-                  cursor: "pointer"
-                }}
-              />
-              <div
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  borderRadius: "20px",
-                  backgroundColor: showBoundaries ? "#4caf50" : "#ccc",
-                  transition: "background-color 0.2s"
-                }}
-              />
-              <div
-                style={{
-                  position: "absolute",
-                  top: "2px",
-                  left: showBoundaries ? "22px" : "2px",
-                  width: "16px",
-                  height: "16px",
-                  borderRadius: "50%",
-                  backgroundColor: "#fff",
-                  transition: "left 0.2s"
-                }}
-              />
-            </div>
-          </label>
+        {/* Map Layer Controls box */}
+        <div
+          style={{
+            display: "inline-block",
+            verticalAlign: "top",
+            padding: "10px 20px",
+            border: "1px solid #ccc",
+            borderRadius: "6px",
+            backgroundColor: "#f9f9f9",
+            // marginBottom removed for flex layout
+            boxShadow: "0 2px 6px rgba(0,0,0,0.1)"
+          }}
+        >
+          <div style={{ marginBottom: "8px", fontWeight: "bold", fontSize: "14px" }}>
+            🛠 Map Layer Controls
+          </div>
+          <div style={{ display: "flex", gap: "30px", alignItems: "center" }}>
+            <label
+              htmlFor="toggle-boundaries"
+              style={{ display: "flex", alignItems: "center", gap: "10px", fontWeight: "bold" }}
+            >
+              Show Boundaries
+              <div style={{ position: "relative", width: "40px", height: "20px" }}>
+                <input
+                  id="toggle-boundaries"
+                  name="toggle-boundaries"
+                  type="checkbox"
+                  checked={showBoundaries}
+                  onChange={() => setShowBoundaries(!showBoundaries)}
+                  style={{
+                    opacity: 0,
+                    width: "40px",
+                    height: "20px",
+                    margin: 0,
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    zIndex: 2,
+                    cursor: "pointer"
+                  }}
+                />
+                <div
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    borderRadius: "20px",
+                    backgroundColor: showBoundaries ? "#4caf50" : "#ccc",
+                    transition: "background-color 0.2s"
+                  }}
+                />
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "2px",
+                    left: showBoundaries ? "22px" : "2px",
+                    width: "16px",
+                    height: "16px",
+                    borderRadius: "50%",
+                    backgroundColor: "#fff",
+                    transition: "left 0.2s"
+                  }}
+                />
+              </div>
+            </label>
 
-          <label
-            htmlFor="toggle-labels"
-            style={{ display: "flex", alignItems: "center", gap: "10px", fontWeight: "bold" }}
-          >
-            Show Labels
-            <div style={{ position: "relative", width: "40px", height: "20px" }}>
-              <input
-                id="toggle-labels"
-                name="toggle-labels"
-                type="checkbox"
-                checked={showLabels}
-                onChange={() => setShowLabels(!showLabels)}
-                style={{
-                  opacity: 0,
-                  width: "40px",
-                  height: "20px",
-                  margin: 0,
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  zIndex: 2,
-                  cursor: "pointer"
-                }}
-              />
-              <div
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  borderRadius: "20px",
-                  backgroundColor: showLabels ? "#4caf50" : "#ccc",
-                  transition: "background-color 0.2s"
-                }}
-              />
-              <div
-                style={{
-                  position: "absolute",
-                  top: "2px",
-                  left: showLabels ? "22px" : "2px",
-                  width: "16px",
-                  height: "16px",
-                  borderRadius: "50%",
-                  backgroundColor: "#fff",
-                  transition: "left 0.2s"
-                }}
-              />
-            </div>
-          </label>
-          <button
-            onClick={() => {
-              if (!mapRef.current || !staffZones.length) return;
-              const bounds = new window.google.maps.LatLngBounds();
-              staffZones.forEach(zone => {
-                zone.path.forEach(coord => bounds.extend(coord));
-              });
-              mapRef.current.fitBounds(bounds);
-            }}
-            style={{
-              padding: "6px 10px",
-              border: "1px solid #ccc",
-              borderRadius: "4px",
-              backgroundColor: "#f1f1f1",
-              color: "#333",
-              fontSize: "13px",
-              cursor: "pointer",
-              height: "32px"
-            }}
-          >
-            🔄 Reset View
-          </button>
-          <button
-            onClick={handleResetToTerritory}
-            style={{
-              padding: "6px 10px",
-              border: "1px solid #ccc",
-              borderRadius: "4px",
-              backgroundColor: "#fff7e6",
-              color: "#d48806",
-              fontSize: "13px",
-              cursor: "pointer",
-              height: "32px"
-            }}
-          >
-            🧭 Reset to Territory
-          </button>
-          <button
-            onClick={handleProcessUnassigned}
-            style={{
-              padding: "6px 10px",
-              border: "1px solid #ccc",
-              borderRadius: "4px",
-              backgroundColor: "#e6f7ff",
-              color: "#0073e6",
-              fontSize: "13px",
-              cursor: "pointer",
-              height: "32px",
-              display: "flex",
-              alignItems: "center"
-            }}
-          >
-            <img src="/icons/location-pin.png" alt="Pin" style={{ width: "16px", marginRight: "6px" }} />
-            Process Unassigned Patients
-          </button>
-          <button
-            onClick={handleProcessUnassignedStaff}
-            style={{
-              padding: "6px 10px",
-              border: "1px solid #ccc",
-              borderRadius: "4px",
-              backgroundColor: "#e6f7ff",
-              color: "#0073e6",
-              fontSize: "13px",
-              cursor: "pointer",
-              height: "32px",
-              display: "flex",
-              alignItems: "center"
-            }}
-          >
-            <img src="/icons/nurse.png" alt="Nurse" style={{ width: "16px", marginRight: "6px" }} />
-            Process Unassigned Staff
-          </button>
+            <label
+              htmlFor="toggle-labels"
+              style={{ display: "flex", alignItems: "center", gap: "10px", fontWeight: "bold" }}
+            >
+              Show Labels
+              <div style={{ position: "relative", width: "40px", height: "20px" }}>
+                <input
+                  id="toggle-labels"
+                  name="toggle-labels"
+                  type="checkbox"
+                  checked={showLabels}
+                  onChange={() => setShowLabels(!showLabels)}
+                  style={{
+                    opacity: 0,
+                    width: "40px",
+                    height: "20px",
+                    margin: 0,
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    zIndex: 2,
+                    cursor: "pointer"
+                  }}
+                />
+                <div
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    borderRadius: "20px",
+                    backgroundColor: showLabels ? "#4caf50" : "#ccc",
+                    transition: "background-color 0.2s"
+                  }}
+                />
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "2px",
+                    left: showLabels ? "22px" : "2px",
+                    width: "16px",
+                    height: "16px",
+                    borderRadius: "50%",
+                    backgroundColor: "#fff",
+                    transition: "left 0.2s"
+                  }}
+                />
+              </div>
+            </label>
+            <button
+              onClick={() => {
+                if (!mapRef.current || !staffZones.length) return;
+                const bounds = new window.google.maps.LatLngBounds();
+                staffZones.forEach(zone => {
+                  zone.path.forEach(coord => bounds.extend(coord));
+                });
+                mapRef.current.fitBounds(bounds);
+              }}
+              style={{
+                padding: "6px 10px",
+                border: "1px solid #ccc",
+                borderRadius: "4px",
+                backgroundColor: "#f1f1f1",
+                color: "#333",
+                fontSize: "13px",
+                cursor: "pointer",
+                height: "32px"
+              }}
+            >
+              🔄 Reset View
+            </button>
+          </div>
+        </div>
+        {/* Patient & Staff Management box */}
+        <div
+          style={{
+            display: "inline-block",
+            verticalAlign: "top",
+            padding: "10px 20px",
+            border: "1px solid #ccc",
+            borderRadius: "6px",
+            backgroundColor: "#f9f9f9",
+            // marginBottom removed for flex layout
+            boxShadow: "0 2px 6px rgba(0,0,0,0.1)"
+          }}
+        >
+          <div style={{ marginBottom: "8px", fontWeight: "bold", fontSize: "14px" }}>
+            🧑‍⚕️ Patient & Staff Management
+          </div>
+          <div style={{ display: "flex", gap: "30px", alignItems: "center" }}>
+            <button
+              onClick={handleResetToTerritory}
+              style={{
+                padding: "6px 10px",
+                border: "1px solid #ccc",
+                borderRadius: "4px",
+                backgroundColor: "#fff7e6",
+                color: "#d48806",
+                fontSize: "13px",
+                cursor: "pointer",
+                height: "32px"
+              }}
+            >
+              🧭 Reset to Territory
+            </button>
+            <button
+              onClick={handleProcessUnassigned}
+              style={{
+                padding: "6px 10px",
+                border: "1px solid #ccc",
+                borderRadius: "4px",
+                backgroundColor: "#e6f7ff",
+                color: "#0073e6",
+                fontSize: "13px",
+                cursor: "pointer",
+                height: "32px",
+                display: "flex",
+                alignItems: "center"
+              }}
+            >
+              <img src="/icons/location-pin.png" alt="Pin" style={{ width: "16px", marginRight: "6px" }} />
+              Process Unassigned Patients
+            </button>
+            <button
+              onClick={handleProcessUnassignedStaff}
+              style={{
+                padding: "6px 10px",
+                border: "1px solid #b36bff",
+                borderRadius: "4px",
+                backgroundColor: "#f0eaff",
+                color: "#7b2cbf",
+                fontSize: "13px",
+                cursor: "pointer",
+                height: "32px",
+                display: "flex",
+                alignItems: "center"
+              }}
+            >
+              <img src="/icons/nurse.png" alt="Nurse" style={{ width: "16px", marginRight: "6px" }} />
+              Process Unassigned Staff
+            </button>
+          </div>
         </div>
       </div>
+      
       <LoadScript googleMapsApiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY}>
         <GoogleMap
           mapContainerStyle={mapContainerStyle}
-          center={center}
+          center={staff.length ? undefined : center}
           zoom={10}
           onLoad={(map) => {
             mapRef.current = map;
