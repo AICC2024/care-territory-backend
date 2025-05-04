@@ -66,11 +66,8 @@ function App() {
         if (assignedPatients.length === 0) return null;
 
         return (
-          <details
-            key={nurse.name}
-            open={!!openSections[nurse.name]}
-          >
-            <summary
+          <div key={nurse.name} style={{ marginBottom: "1rem" }}>
+            <div
               onClick={() => toggleSection(nurse.name)}
               style={{
                 cursor: "pointer",
@@ -80,27 +77,27 @@ function App() {
                 gap: "6px"
               }}
             >
-              <span>
-                {openSections[nurse.name] ? "▼" : "▶"}
-              </span>
+              <span>{openSections[nurse.name] ? "▼" : "▶"}</span>
               {nurse.name} ({assignedPatients.length} Patients)
-            </summary>
-            <ul
-              style={{
-                marginTop: "0.5rem",
-                marginLeft: "1rem",
-                maxHeight: "500px",
-                overflow: "hidden",
-                transition: "all 0.3s ease-in-out"
-              }}
-            >
-              {assignedPatients.map(p => (
-                <li key={p.patient_id}>
-                  {p.name} – {p.address} ({p.type_of_care})
-                </li>
-              ))}
-            </ul>
-          </details>
+            </div>
+            {openSections[nurse.name] && (
+              <ul
+                style={{
+                  marginTop: "0.5rem",
+                  marginLeft: "1rem",
+                  maxHeight: "500px",
+                  overflow: "hidden",
+                  transition: "all 0.3s ease-in-out"
+                }}
+              >
+                {assignedPatients.map(p => (
+                  <li key={p.patient_id}>
+                    {p.name} – {p.address} ({p.type_of_care})
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         );
       })}
       <h2 style={{ marginTop: "2rem" }}>Patient Map (Zone View)</h2>
