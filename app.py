@@ -216,6 +216,35 @@ def process_unassigned_patients():
     conn.close()
     return jsonify({"status": "processed", "count": updated})
 
+
+# --- Process unassigned staff route ---
+@app.route("/api/process-unassigned-staff", methods=["POST"])
+def process_unassigned_staff():
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT staff_id, home_base_address
+        FROM staff
+        WHERE latitude IS NULL OR longitude IS NULL
+    """)
+    rows = cur.fetchall()
+
+    updated = 0
+    for sid, address in rows:
+        lat, lng = geocode_address(address)
+        if lat and lng:
+            cur.execute("""
+                UPDATE staff
+                SET latitude = %s, longitude = %s
+                WHERE staff_id = %s
+            """, (lat, lng, sid))
+            updated += 1
+
+    conn.commit()
+    cur.close()
+    conn.close()
+    return jsonify({"status": "processed", "count": updated})
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5050))
     app.run(host="0.0.0.0", port=port)

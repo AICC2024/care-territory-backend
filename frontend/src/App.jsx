@@ -51,7 +51,7 @@ function App() {
         ))}
       </ul>
       <h2 style={{ marginTop: "2rem" }}>Patient Map (Cluster View)</h2>
-      <ClusterMap />
+      <ClusterMap patients={patients} setPatients={setPatients} />
     </div>
   );
 }

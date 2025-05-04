@@ -72,8 +72,7 @@ function jitterPoint(point, amount = 0.00005) {
   };
 }
 
-function ClusterMap() {
-  const [patients, setPatients] = useState([]);
+function ClusterMap({ patients, setPatients }) {
   const [activeMarker, setActiveMarker] = useState(null);
   const mapRef = useRef(null);
 
@@ -200,7 +199,7 @@ useEffect(() => {
     setStaffZones(zones);
 
     // Patient assignment has moved to a separate useEffect below
-  }, [staff.length]);
+  }, [staff]);
 
   // Assign patients to staff zones after staffZones, staff, and patients are all ready
   useEffect(() => {
@@ -428,6 +427,7 @@ useEffect(() => {
             Processed {res.data.count} unassigned patients
           </>
         );
+        // After toast, refresh patients from API to update coordinates & assignments
         return axios.get(`${baseUrl}/api/patients`);
       })
       .then(res => {
@@ -442,6 +442,34 @@ useEffect(() => {
       .catch(err => {
         console.error("❌ Failed to process unassigned patients:", err);
         toast.error("❌ Failed to process unassigned patients");
+      });
+  };
+
+  // --- Process unassigned staff logic ---
+  const handleProcessUnassignedStaff = () => {
+    const baseUrl = import.meta.env.VITE_API_BASE_URL;
+    axios.post(`${baseUrl}/api/process-unassigned-staff`)
+      .then(res => {
+        console.log("✅ Processed unassigned staff:", res.data);
+        toast.success(
+          <>
+            <img
+              src="/icons/nurse.png"
+              alt="Nurse"
+              style={{ width: "16px", verticalAlign: "middle", marginRight: "6px" }}
+            />
+            Processed {res.data.count} unassigned staff
+          </>
+        );
+        return axios.get(`${baseUrl}/api/staff`);
+      })
+      .then(res => {
+        setStaff([...res.data]);
+        handleResetToTerritory();
+      })
+      .catch(err => {
+        console.error("❌ Failed to process unassigned staff:", err);
+        toast.error("❌ Failed to process unassigned staff");
       });
   };
 
@@ -662,6 +690,24 @@ useEffect(() => {
           >
             <img src="/icons/location-pin.png" alt="Pin" style={{ width: "16px", marginRight: "6px" }} />
             Process Unassigned Patients
+          </button>
+          <button
+            onClick={handleProcessUnassignedStaff}
+            style={{
+              padding: "6px 10px",
+              border: "1px solid #ccc",
+              borderRadius: "4px",
+              backgroundColor: "#e6f7ff",
+              color: "#0073e6",
+              fontSize: "13px",
+              cursor: "pointer",
+              height: "32px",
+              display: "flex",
+              alignItems: "center"
+            }}
+          >
+            <img src="/icons/nurse.png" alt="Nurse" style={{ width: "16px", marginRight: "6px" }} />
+            Process Unassigned Staff
           </button>
         </div>
       </div>
