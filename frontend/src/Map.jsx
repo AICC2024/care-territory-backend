@@ -80,11 +80,22 @@ function ClusterMap({ patients, setPatients }) {
   const [clusterCenters, setClusterCenters] = useState({});
   const [assignments, setAssignments] = useState({});
   const [staffZones, setStaffZones] = useState([]);
+  // Office drive-time zones
+  const [officeZones, setOfficeZones] = useState([]);
+  // Fetch office drive-time zones
+  useEffect(() => {
+    const baseUrl = import.meta.env.VITE_API_BASE_URL;
+    axios.get(`${baseUrl}/api/office-zones`)
+      .then(res => setOfficeZones(res.data))
+      .catch(err => console.error("Failed to fetch office zones:", err));
+  }, []);
 
   const [showBoundaries, setShowBoundaries] = useState(true);
   const [showLabels, setShowLabels] = useState(false);
   // Patient load state for staff
   const [staffLoads, setStaffLoads] = useState({});
+  // Toggle for showing office zones
+  const [showOfficeZones, setShowOfficeZones] = useState(true);
   // Track when map is ready
   const [mapReady, setMapReady] = useState(false);
   // Prevent premature patient pin rendering
@@ -248,6 +259,22 @@ useEffect(() => {
 
     mapRef.current.fitBounds(bounds);
   }, [staffZones, mapReady]);
+
+  // --- Auto-fit map bounds to officeZones when loaded ---
+  useEffect(() => {
+    if (!mapRef.current || !officeZones.length) return;
+
+    const bounds = new window.google.maps.LatLngBounds();
+    officeZones.forEach(zone => {
+      if (zone.geojson?.geometry?.coordinates?.[0]) {
+        zone.geojson.geometry.coordinates[0].forEach(([lng, lat]) => {
+          bounds.extend({ lat, lng });
+        });
+      }
+    });
+
+    mapRef.current.fitBounds(bounds);
+  }, [officeZones]);
 
   // --- Rebalance prompt trigger effect ---
   useEffect(() => {
@@ -574,6 +601,53 @@ useEffect(() => {
           </div>
           <div style={{ display: "flex", gap: "30px", alignItems: "center" }}>
             <label
+              htmlFor="toggle-office-zones"
+              style={{ display: "flex", alignItems: "center", gap: "10px", fontWeight: "bold" }}
+            >
+              Show Office Zones
+              <div style={{ position: "relative", width: "40px", height: "20px" }}>
+                <input
+                  id="toggle-office-zones"
+                  name="toggle-office-zones"
+                  type="checkbox"
+                  checked={showOfficeZones}
+                  onChange={() => setShowOfficeZones(!showOfficeZones)}
+                  style={{
+                    opacity: 0,
+                    width: "40px",
+                    height: "20px",
+                    margin: 0,
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    zIndex: 2,
+                    cursor: "pointer"
+                  }}
+                />
+                <div
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    borderRadius: "20px",
+                    backgroundColor: showOfficeZones ? "#4caf50" : "#ccc",
+                    transition: "background-color 0.2s"
+                  }}
+                />
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "2px",
+                    left: showOfficeZones ? "22px" : "2px",
+                    width: "16px",
+                    height: "16px",
+                    borderRadius: "50%",
+                    backgroundColor: "#fff",
+                    transition: "left 0.2s"
+                  }}
+                />
+              </div>
+            </label>
+            <label
               htmlFor="toggle-boundaries"
               style={{ display: "flex", alignItems: "center", gap: "10px", fontWeight: "bold" }}
             >
@@ -774,6 +848,44 @@ useEffect(() => {
             setMapReady(true);
           }}
         >
+          {/* --- Office drive-time polygons --- */}
+          {showOfficeZones && officeZones.map((zone, index) => {
+            const coords = zone.geojson.geometry.coordinates[0].map(([lng, lat]) => ({ lat, lng }));
+            const centerLat = coords.reduce((sum, c) => sum + c.lat, 0) / coords.length;
+            const centerLng = coords.reduce((sum, c) => sum + c.lng, 0) / coords.length;
+
+            return (
+              <React.Fragment key={`office-zone-${zone.id}`}>
+                <Polygon
+                  paths={coords}
+                  options={{
+                    fillColor: clusterColors[index % Object.keys(clusterColors).length] || "gray",
+                    fillOpacity: 0.2,
+                    strokeColor: "#333",
+                    strokeOpacity: 0.6,
+                    strokeWeight: 2
+                  }}
+                />
+                {showLabels && (
+                  <InfoWindow
+                    position={{ lat: centerLat, lng: centerLng }}
+                    options={{ disableAutoPan: true }}
+                  >
+                    <div style={{
+                      fontWeight: "bold",
+                      fontSize: "11px",
+                      backgroundColor: "rgba(255,255,255,0.8)",
+                      padding: "2px 6px",
+                      borderRadius: "4px",
+                      border: "1px solid #ccc"
+                    }}>
+                      {zone.name}
+                    </div>
+                  </InfoWindow>
+                )}
+              </React.Fragment>
+            );
+          })}
           {/* --- Voronoi territory polygons for staff --- */}
           {mapReady && staffZones.length > 0 && staffZones.map((zone, index) => (
             <React.Fragment key={zone.id || `zone-${index}`}>

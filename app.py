@@ -5,6 +5,7 @@ import os
 import psycopg2
 from dotenv import load_dotenv
 import requests
+import json
 
 load_dotenv()
 
@@ -177,6 +178,158 @@ def add_staff():
 
     return jsonify({"status": "inserted", "name": name})
 
+@app.route("/api/add-office", methods=["POST"])
+def add_office():
+    data = request.json
+    name = data.get("name")
+    address = data.get("address")
+
+    lat, lng = geocode_address(address)
+
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO offices (name, address, latitude, longitude)
+        VALUES (%s, %s, %s, %s)
+        RETURNING id
+    """, (name, address, lat, lng))
+    office_id = cur.fetchone()[0]
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    # Trigger ORS zone generation
+    try:
+        ors_api_key = os.environ.get("ORS_API_KEY")
+        if ors_api_key:
+            url = "https://api.openrouteservice.org/v2/isochrones/driving-car"
+            headers = {
+                "Authorization": ors_api_key,
+                "Content-Type": "application/json"
+            }
+            payload = {
+                "locations": [[lng, lat]],
+                "range": [3600],
+                "range_type": "time",
+                "attributes": ["area", "reachfactor", "total_pop"]
+            }
+            response = requests.post(url, headers=headers, json=payload)
+            data = response.json()
+            if "features" in data and len(data["features"]) > 0:
+                geojson = json.dumps(data["features"][0])
+                conn = get_connection()
+                cur = conn.cursor()
+                cur.execute("UPDATE offices SET geojson_zone = %s WHERE id = %s", (geojson, office_id))
+                conn.commit()
+                cur.close()
+                conn.close()
+    except Exception as e:
+        print(f"❌ Failed to auto-generate ORS zone: {e}")
+
+    return jsonify({"status": "inserted", "name": name, "id": office_id})
+
+
+@app.route("/api/offices")
+def get_offices():
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id, name, address, latitude, longitude, geojson_zone FROM offices")
+    rows = cur.fetchall()
+    colnames = [desc[0] for desc in cur.description]
+    cur.close()
+    conn.close()
+    return jsonify([dict(zip(colnames, row)) for row in rows])
+
+# Route to delete an office by ID
+@app.route("/api/delete-office/<int:office_id>", methods=["DELETE"])
+def delete_office(office_id):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM offices WHERE id = %s", (office_id,))
+    conn.commit()
+    cur.close()
+    conn.close()
+    return jsonify({"status": "deleted", "id": office_id})
+
+@app.route("/api/office-zones")
+def get_office_zones():
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT id, name, geojson_zone
+        FROM offices
+        WHERE geojson_zone IS NOT NULL
+    """)
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+
+    zones = []
+    for row in rows:
+        office_id, name, geojson_text = row
+        try:
+            geojson = json.loads(geojson_text)
+            zones.append({
+                "id": office_id,
+                "name": name,
+                "geojson": geojson
+            })
+        except Exception:
+            continue
+
+    return jsonify(zones)
+
+@app.route("/api/generate-office-zone/<int:office_id>", methods=["POST"])
+def generate_office_zone(office_id):
+    minutes = int(request.args.get("minutes", "60"))
+    ors_api_key = os.environ.get("ORS_API_KEY")
+    if not ors_api_key:
+        return jsonify({"error": "Missing ORS_API_KEY in environment"}), 500
+
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT latitude, longitude FROM offices WHERE id = %s", (office_id,))
+    result = cur.fetchone()
+
+    if not result:
+        cur.close()
+        conn.close()
+        return jsonify({"error": "Office not found"}), 404
+
+    lat, lng = result
+    url = "https://api.openrouteservice.org/v2/isochrones/driving-car"
+    headers = {
+        "Authorization": ors_api_key,
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "locations": [[lng, lat]],
+        "range": [minutes * 60],
+        "range_type": "time",
+        "attributes": ["area", "reachfactor", "total_pop"]
+    }
+
+    try:
+        response = requests.post(url, headers=headers, json=payload)
+        data = response.json()
+        if "features" in data and len(data["features"]) > 0:
+            geojson = json.dumps(data["features"][0])
+            cur.execute("UPDATE offices SET geojson_zone = %s WHERE id = %s", (geojson, office_id))
+            conn.commit()
+        else:
+            return jsonify({"error": "ORS returned no features"}), 502
+    except Exception as e:
+        return jsonify({"error": f"ORS request failed: {e}"}), 500
+    finally:
+        cur.close()
+        conn.close()
+
+    return jsonify({
+        "status": "zone_saved",
+        "office_id": office_id,
+        "geojson": json.loads(geojson)
+    })
+
 
 # --- Process unassigned patients route ---
 @app.route("/api/process-unassigned-patients", methods=["POST"])
@@ -217,6 +370,7 @@ def process_unassigned_patients():
     return jsonify({"status": "processed", "count": updated})
 
 
+
 # --- Process unassigned staff route ---
 @app.route("/api/process-unassigned-staff", methods=["POST"])
 def process_unassigned_staff():
@@ -244,6 +398,54 @@ def process_unassigned_staff():
     cur.close()
     conn.close()
     return jsonify({"status": "processed", "count": updated})
+
+
+# --- Regenerate all office zones route ---
+@app.route("/api/regenerate-all-office-zones", methods=["POST"])
+def regenerate_all_office_zones():
+    ors_api_key = os.environ.get("ORS_API_KEY")
+    if not ors_api_key:
+        return jsonify({"error": "Missing ORS_API_KEY in environment"}), 500
+
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id, latitude, longitude FROM offices WHERE latitude IS NOT NULL AND longitude IS NOT NULL")
+    offices = cur.fetchall()
+
+    headers = {
+        "Authorization": ors_api_key,
+        "Content-Type": "application/json"
+    }
+    url = "https://api.openrouteservice.org/v2/isochrones/driving-car"
+    updated = 0
+
+    for office_id, lat, lng in offices:
+        payload = {
+            "locations": [[lng, lat]],
+            "range": [3600],
+            "range_type": "time",
+            "attributes": ["area", "reachfactor", "total_pop"]
+        }
+        try:
+            response = requests.post(url, headers=headers, json=payload)
+            print(f"🌍 ORS response for office {office_id}:", response.status_code, response.text)
+            if response.status_code != 200:
+                print(f"❌ Skipping office {office_id}: HTTP {response.status_code}")
+                continue
+            data = response.json()
+            if "features" in data and len(data["features"]) > 0:
+                geojson = json.dumps(data["features"][0])
+                cur.execute("UPDATE offices SET geojson_zone = %s WHERE id = %s", (geojson, office_id))
+                updated += 1
+            else:
+                print(f"❌ ORS returned no features for office {office_id}")
+        except Exception as e:
+            print(f"❌ Failed to generate zone for office {office_id}: {e}")
+
+    conn.commit()
+    cur.close()
+    conn.close()
+    return jsonify({"status": "regenerated", "updated": updated})
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5050))
