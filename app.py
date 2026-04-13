@@ -1011,9 +1011,9 @@ def get_office_zones_by_range(minutes):
 
     derived_column = f"geojson_zone_{minutes}"
     if derived_column in office_columns:
-        column_expr = f"COALESCE({derived_column}, geojson_zone)"
+        column_expr = f"COALESCE({derived_column}::text, geojson_zone::text)"
     else:
-        column_expr = "geojson_zone"
+        column_expr = "geojson_zone::text"
 
     cur = conn.cursor()
     cur.execute(f"""
