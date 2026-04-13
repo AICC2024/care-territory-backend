@@ -82,8 +82,8 @@ function OfficeMap() {
   // --- Patients and Staff state ---
   const [patients, setPatients] = useState([]);
   const [staff, setStaff] = useState([]);
-  const [showPatients, setShowPatients] = useState(false);
-  const [showStaff, setShowStaff] = useState(false);
+  const [showPatients, setShowPatients] = useState(true);
+  const [showStaff, setShowStaff] = useState(true);
   // --- Legend Drag State ---
   const [legendPosition, setLegendPosition] = useState({ x: 325, y: 20 });
   // --- Sidebar Collapse State ---
