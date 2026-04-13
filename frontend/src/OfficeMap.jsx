@@ -261,6 +261,23 @@ function OfficeMap() {
     </label>
   );
 
+
+  const focusOnPoint = (latValue, lngValue, zoom = 12) => {
+    const lat = Number(latValue);
+    const lng = Number(lngValue);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng) || !mapRef.current) return;
+    mapRef.current.panTo({ lat, lng });
+    mapRef.current.setZoom(zoom);
+  };
+
+  const focusOnStaff = (staffMember) => {
+    focusOnPoint(staffMember?.latitude, staffMember?.longitude, 12);
+  };
+
+  const focusOnPatient = (patient) => {
+    focusOnPoint(patient?.latitude, patient?.longitude, 13);
+  };
+
   return (
     <>
       <style>{`
@@ -620,7 +637,29 @@ function OfficeMap() {
             const assignedPatients = patients.filter(p => p.assigned_staff_id === s.staff_id);
             return (
               <div key={s.staff_id} style={{ marginBottom: "12px" }}>
-                <div style={{ fontWeight: "bold" }}>{s.name}</div>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px" }}>
+                  <div style={{ fontWeight: "bold" }}>{s.name}</div>
+                  <button
+                    type="button"
+                    onMouseDown={(event) => event.stopPropagation()}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      focusOnStaff(s);
+                    }}
+                    style={{
+                      padding: "2px 8px",
+                      fontSize: "11px",
+                      fontWeight: 700,
+                      borderRadius: "999px",
+                      border: "1px solid rgba(148, 163, 184, 0.6)",
+                      backgroundColor: "#0f172a",
+                      color: "#f8fafc",
+                      cursor: "pointer"
+                    }}
+                  >
+                    Focus
+                  </button>
+                </div>
                 <label style={{ fontSize: "13px", color: "#333", display: "block" }}>
                   <input
                     type="checkbox"
@@ -700,7 +739,29 @@ function OfficeMap() {
                 </div>
                 <ul style={{ marginTop: "4px", paddingLeft: "16px", fontSize: "13px" }}>
                   {assignedPatients.map(p => (
-                    <li key={p.patient_id}>{p.name}</li>
+                    <li key={p.patient_id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "6px" }}>
+                      <span>{p.name}</span>
+                      <button
+                        type="button"
+                        onMouseDown={(event) => event.stopPropagation()}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          focusOnPatient(p);
+                        }}
+                        style={{
+                          padding: "1px 7px",
+                          fontSize: "10px",
+                          fontWeight: 700,
+                          borderRadius: "999px",
+                          border: "1px solid rgba(148, 163, 184, 0.55)",
+                          backgroundColor: "#e2e8f0",
+                          color: "#0f172a",
+                          cursor: "pointer"
+                        }}
+                      >
+                        Focus
+                      </button>
+                    </li>
                   ))}
                 </ul>
               </div>
