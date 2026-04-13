@@ -504,7 +504,7 @@ function OfficeMap() {
               }}
               title="Focus office"
             >
-              ⌖
+              🎯
             </button>
           </div>
         ))}
@@ -665,7 +665,7 @@ function OfficeMap() {
                     }}
                     title="Focus nurse"
                   >
-                    ⌖
+                    🎯
                   </button>
                 </div>
                 <label style={{ fontSize: "13px", color: "#333", display: "block" }}>
@@ -768,7 +768,7 @@ function OfficeMap() {
                         }}
                         title="Focus patient"
                       >
-                        ⌖
+                        🎯
                       </button>
                     </li>
                   ))}
