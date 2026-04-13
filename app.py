@@ -49,6 +49,19 @@ def update_avoid_home_zone(staff_id):
         values.append(radius)
 
     conn = get_connection()
+    staff_columns = get_table_columns(conn, "staff")
+    patient_columns = get_table_columns(conn, "patients")
+    required_staff_cols = {"avoid_home_zone", "avoid_home_radius_miles", "manual_override", "assigned_office_id"}
+    required_patient_cols = {"assigned_staff_id", "assigned_office_id"}
+    missing_cols = sorted((required_staff_cols - staff_columns) | (required_patient_cols - patient_columns))
+    if missing_cols:
+        conn.close()
+        return jsonify({
+            "error": "Database schema is missing required staffing columns",
+            "missing_columns": missing_cols,
+            "hint": "Run the latest schema migration/seed script before using avoid-home-zone controls"
+        }), 409
+
     cur = conn.cursor()
 
     values.append(staff_id)
@@ -558,22 +571,55 @@ def get_connection():
         password=os.environ.get("DB_PASSWORD", "yourpassword")
     )
 
+
+def get_table_columns(conn, table_name):
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT column_name
+        FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = %s
+        """,
+        (table_name,)
+    )
+    columns = {row[0] for row in cur.fetchall()}
+    cur.close()
+    return columns
+
+
 @app.route("/api/patients")
 def get_patients():
     conn = get_connection()
+    patient_columns = get_table_columns(conn, "patients")
     cur = conn.cursor()
-    cur.execute("SELECT patient_id, name, address, type_of_care, status, latitude, longitude, cluster_id, zip_code, assigned_staff, assigned_office_id, assigned_staff_id FROM patients")
+    assigned_office_expr = "assigned_office_id" if "assigned_office_id" in patient_columns else "NULL::INTEGER AS assigned_office_id"
+    assigned_staff_id_expr = "assigned_staff_id" if "assigned_staff_id" in patient_columns else "NULL::INTEGER AS assigned_staff_id"
+    cur.execute(f"""
+        SELECT patient_id, name, address, type_of_care, status, latitude, longitude, cluster_id, zip_code, assigned_staff,
+               {assigned_office_expr}, {assigned_staff_id_expr}
+        FROM patients
+    """)
     rows = cur.fetchall()
     colnames = [desc[0] for desc in cur.description]
     cur.close()
     conn.close()
     return jsonify([dict(zip(colnames, row)) for row in rows])
 
+
 @app.route("/api/staff")
 def get_staff():
     conn = get_connection()
+    staff_columns = get_table_columns(conn, "staff")
     cur = conn.cursor()
-    cur.execute("SELECT staff_id, name, home_base_address, max_capacity, latitude, longitude, zip_code, assigned_office_id, avoid_home_zone, avoid_home_radius_miles, manual_override FROM staff")
+    assigned_office_expr = "assigned_office_id" if "assigned_office_id" in staff_columns else "NULL::INTEGER AS assigned_office_id"
+    avoid_zone_expr = "avoid_home_zone" if "avoid_home_zone" in staff_columns else "FALSE AS avoid_home_zone"
+    avoid_radius_expr = "avoid_home_radius_miles" if "avoid_home_radius_miles" in staff_columns else "2.0::DOUBLE PRECISION AS avoid_home_radius_miles"
+    manual_override_expr = "manual_override" if "manual_override" in staff_columns else "FALSE AS manual_override"
+    cur.execute(f"""
+        SELECT staff_id, name, home_base_address, max_capacity, latitude, longitude, zip_code,
+               {assigned_office_expr}, {avoid_zone_expr}, {avoid_radius_expr}, {manual_override_expr}
+        FROM staff
+    """)
     rows = cur.fetchall()
     colnames = [desc[0] for desc in cur.description]
     cur.close()
