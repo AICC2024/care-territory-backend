@@ -492,15 +492,19 @@ function OfficeMap() {
                 }
               }}
               style={{
-                padding: "8px 10px",
-                fontSize: "11px",
+                width: "36px",
+                height: "36px",
+                fontSize: "16px",
                 fontWeight: 700,
                 borderRadius: "10px",
-                backgroundColor: "#0f172a",
-                color: "#f8fafc",
-                border: "1px solid rgba(148, 163, 184, 0.35)",
+                backgroundColor: "#ffffff",
+                color: "#0f172a",
+                border: "1px solid rgba(148, 163, 184, 0.6)",
                 cursor: "pointer",
-                boxShadow: "0 4px 10px rgba(15, 23, 42, 0.22)"
+                boxShadow: "0 2px 8px rgba(15, 23, 42, 0.10)",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center"
               }}
               title="Focus office"
             >
@@ -654,14 +658,19 @@ function OfficeMap() {
                       focusOnStaff(s);
                     }}
                     style={{
-                      padding: "2px 8px",
-                      fontSize: "11px",
+                      width: "34px",
+                      height: "30px",
+                      fontSize: "15px",
                       fontWeight: 700,
-                      borderRadius: "999px",
+                      borderRadius: "10px",
                       border: "1px solid rgba(148, 163, 184, 0.6)",
-                      backgroundColor: "#0f172a",
-                      color: "#f8fafc",
-                      cursor: "pointer"
+                      backgroundColor: "#ffffff",
+                      color: "#0f172a",
+                      cursor: "pointer",
+                      boxShadow: "0 2px 8px rgba(15, 23, 42, 0.10)",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center"
                     }}
                     title="Focus nurse"
                   >
@@ -757,14 +766,19 @@ function OfficeMap() {
                           focusOnPatient(p);
                         }}
                         style={{
-                          padding: "1px 7px",
-                          fontSize: "10px",
+                          width: "30px",
+                          height: "24px",
+                          fontSize: "13px",
                           fontWeight: 700,
-                          borderRadius: "999px",
+                          borderRadius: "8px",
                           border: "1px solid rgba(148, 163, 184, 0.55)",
-                          backgroundColor: "#e2e8f0",
+                          backgroundColor: "#ffffff",
                           color: "#0f172a",
-                          cursor: "pointer"
+                          cursor: "pointer",
+                          boxShadow: "0 1px 6px rgba(15, 23, 42, 0.10)",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center"
                         }}
                         title="Focus patient"
                       >
@@ -1201,15 +1215,15 @@ Assigned Nurse: ${assignedNurse}`}
                       <div style={{
                         marginLeft: "10px",
                         transform: "translateY(-12px)",
-                        background: "rgba(15, 23, 42, 0.9)",
-                        color: "#fff",
+                        background: "rgba(255, 255, 255, 0.96)",
+                        color: "#0f172a",
                         fontSize: "11px",
                         fontWeight: 700,
                         borderRadius: "999px",
                         padding: "4px 8px",
                         whiteSpace: "nowrap",
-                        border: "1px solid rgba(148, 163, 184, 0.5)",
-                        boxShadow: "0 4px 10px rgba(15, 23, 42, 0.24)"
+                        border: "1px solid rgba(148, 163, 184, 0.45)",
+                        boxShadow: "0 3px 10px rgba(15, 23, 42, 0.14)"
                       }}>
                         {p.name}
                       </div>
@@ -1275,15 +1289,15 @@ ${patientList.join(", ")}`}
                       <div style={{
                         marginLeft: "14px",
                         transform: "translateY(-16px)",
-                        background: "rgba(15, 23, 42, 0.9)",
-                        color: "#fff",
+                        background: "rgba(255, 255, 255, 0.96)",
+                        color: "#0f172a",
                         fontSize: "11px",
                         fontWeight: 700,
                         borderRadius: "999px",
                         padding: "4px 8px",
                         whiteSpace: "nowrap",
-                        border: "1px solid rgba(148, 163, 184, 0.5)",
-                        boxShadow: "0 4px 10px rgba(15, 23, 42, 0.24)"
+                        border: "1px solid rgba(148, 163, 184, 0.45)",
+                        boxShadow: "0 3px 10px rgba(15, 23, 42, 0.14)"
                       }}>
                         {s.name}
                       </div>
