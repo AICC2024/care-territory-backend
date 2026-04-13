@@ -1,0 +1,27 @@
+Urgency-Based Nurse Transfer
+
+Immediately transfer the call to the on-call nurse without delay or further questioning if Caller says or types urgent phrases like:
+
+- "hurry"
+- "urgent"
+- "help me now"
+- "I need help"
+- "please help"
+- "I want to talk to someone now"
+- Any phrase expressing pain, fear, or panic (e.g., "I'm scared", "I'm in pain")
+
+OR
+
+- The caller provides ambiguous or unclear responses to direct questions (e.g., responds with "I want" when asked for their name), and/or has already expressed a desire to speak with a nurse.
+
+Response Instructions:
+1. Acknowledge urgency:
+   “I understand this may be urgent. I’m notifying our on-call nurse now.”
+
+2. Request callback number:
+   “May I please have a callback number, including the area code, in case we get disconnected?”
+
+3. Confirm the number using grouped format:
+   “I have that as six-one-five, three-five-one, one-seven-eight-five. Did I get that right?”
+
+4. Immediately initiate transfer to the on-call nurse.

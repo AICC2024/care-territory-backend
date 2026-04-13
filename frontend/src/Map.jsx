@@ -5,6 +5,7 @@ import { GoogleMap, LoadScript, Marker, InfoWindow, Polygon } from "@react-googl
 import { useEffect, useState, useRef } from "react";
 import { Delaunay } from "d3-delaunay";
 import axios from "axios";
+import { getApiBaseUrl } from "./apiBase";
 import * as turf from "@turf/turf";
 
 const mapContainerStyle = {
@@ -84,7 +85,7 @@ function ClusterMap({ patients, setPatients }) {
   const [officeZones, setOfficeZones] = useState([]);
   // Fetch office drive-time zones
   useEffect(() => {
-    const baseUrl = import.meta.env.VITE_API_BASE_URL;
+    const baseUrl = getApiBaseUrl();
     axios.get(`${baseUrl}/api/office-zones`)
       .then(res => setOfficeZones(res.data))
       .catch(err => console.error("Failed to fetch office zones:", err));
@@ -137,7 +138,7 @@ function ClusterMap({ patients, setPatients }) {
   }, [patients, staff]);
 
 useEffect(() => {
-  const baseUrl = import.meta.env.VITE_API_BASE_URL;
+  const baseUrl = getApiBaseUrl();
   axios.get(`${baseUrl}/api/patients`)
     .then(res => {
       setPatients(res.data);
@@ -154,7 +155,7 @@ useEffect(() => {
 
   // Fetch staff
   useEffect(() => {
-    const baseUrl = import.meta.env.VITE_API_BASE_URL;
+    const baseUrl = getApiBaseUrl();
     axios.get(`${baseUrl}/api/staff`)
       .then(res => setStaff(res.data))
       .catch(err => console.error("Failed to fetch staff:", err));
@@ -162,7 +163,7 @@ useEffect(() => {
 
   // Fetch assignments
   useEffect(() => {
-    const baseUrl = import.meta.env.VITE_API_BASE_URL;
+    const baseUrl = getApiBaseUrl();
     axios.get(`${baseUrl}/api/assignments`)
       .then(res => setAssignments(res.data))
       .catch(err => console.error("Failed to fetch assignments:", err));
@@ -375,7 +376,7 @@ useEffect(() => {
     if (changed) {
       setPatients(reassignedPatients);
       // Persist rebalanced assignments to backend
-      const baseUrl = import.meta.env.VITE_API_BASE_URL;
+      const baseUrl = getApiBaseUrl();
       axios.post(`${baseUrl}/api/save-assignments`, reassignedPatients)
         .then(() => {
           console.log("✅ Rebalanced assignments saved to backend");
@@ -425,7 +426,7 @@ useEffect(() => {
       };
     });
 
-    const baseUrl = import.meta.env.VITE_API_BASE_URL;
+    const baseUrl = getApiBaseUrl();
     axios.post(`${baseUrl}/api/save-assignments`, updated)
       .then(() => {
         setPatients(updated);
@@ -447,7 +448,7 @@ useEffect(() => {
 
   // --- Process unassigned patients logic ---
   const handleProcessUnassigned = () => {
-    const baseUrl = import.meta.env.VITE_API_BASE_URL;
+    const baseUrl = getApiBaseUrl();
     axios.post(`${baseUrl}/api/process-unassigned-patients`)
       .then(res => {
         console.log("✅ Processed unassigned patients:", res.data);
@@ -492,7 +493,7 @@ useEffect(() => {
 
   // --- Process unassigned staff logic ---
   const handleProcessUnassignedStaff = () => {
-    const baseUrl = import.meta.env.VITE_API_BASE_URL;
+    const baseUrl = getApiBaseUrl();
     axios.post(`${baseUrl}/api/process-unassigned-staff`)
       .then(res => {
         console.log("✅ Processed unassigned staff:", res.data);

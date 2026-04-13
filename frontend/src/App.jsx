@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import OfficeMap from "./OfficeMap";
+import { getApiBaseUrl } from "./apiBase";
 
 function App() {
-  const baseUrl = import.meta.env.VITE_API_BASE_URL;
+  const baseUrl = getApiBaseUrl();
   const [patients, setPatients] = useState([]);
   const [staff, setStaff] = useState([]);
   const [openSections, setOpenSections] = useState({});

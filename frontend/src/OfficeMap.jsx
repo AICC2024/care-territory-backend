@@ -1,5 +1,10 @@
 import React from "react";
 import stethoscopeIcon from "./assets/stethoscope-icon.png";
+import personIcon from "./assets/person.png";
+import yorkIcon from "./assets/york_staff.png";
+import dauphinIcon from "./assets/dauphin_staff.png";
+import schuylkillIcon from "./assets/schuylkill_staff.png";
+import lancasterIcon from "./assets/lancaster_staff.png";
 import serviceAreaGeojson from "./assets/hospice_service_area.js";
 import teamTerritories from "./assets/team_territories.js";
 import { ToastContainer, toast } from "react-toastify";
@@ -7,6 +12,7 @@ import "react-toastify/dist/ReactToastify.css";
 import { GoogleMap, LoadScript, Marker, InfoWindow, Polygon, OverlayView } from "@react-google-maps/api";
 import { useEffect, useState, useRef } from "react";
 import axios from "axios";
+import { getApiBaseUrl } from "./apiBase";
 import chickadeeTerritory from "./assets/chickadee_territory.js";
 import dragonflyTerritory from "./assets/dragonfly_territory.js";
 import ladybugTerritory from "./assets/ladybug_territory.js";
@@ -16,9 +22,8 @@ import emeraldTerritory from "./assets/emerald_territory.js";
 import blueTerritory from "./assets/blue_territory.js";
 
 const mapContainerStyle = {
-  width: "calc(100% - 100px)",
-  marginLeft: "350px",
-  height: "calc(100vh - 120px)",
+  width: "100%",
+  height: "100vh",
 };
 
 
@@ -61,12 +66,12 @@ function convexHull(points) {
 
 
 function OfficeMap() {
-  // Only keep officeZones, mapRef, mapReady, showOfficeZones, showLabels
+  // Only keep officeZones, mapRef, mapReady, showOfficeZones, map legend drag state
   const mapRef = useRef(null);
   const [officeZones, setOfficeZones] = useState([]);
   const [showOfficeZones, setShowOfficeZones] = useState(true);
   const [showLabels, setShowLabels] = useState(true);
-  const [showServiceArea, setShowServiceArea] = useState(true);
+  const [showServiceArea, setShowServiceArea] = useState(false);
   const [showTeams, setShowTeams] = useState(false);
   const [showTeamLabels, setShowTeamLabels] = useState(false);
   const [mapReady, setMapReady] = useState(false);
@@ -74,12 +79,79 @@ function OfficeMap() {
   const [mapCenter, setMapCenter] = useState({ lat: 39.95, lng: -76.73 });
   const [driveTime, setDriveTime] = useState("60");
   const [loadingZones, setLoadingZones] = useState(false);
-
-  // Fetch office drive-time zones
+  // --- Patients and Staff state ---
+  const [patients, setPatients] = useState([]);
+  const [staff, setStaff] = useState([]);
+  const [showPatients, setShowPatients] = useState(false);
+  const [showStaff, setShowStaff] = useState(false);
+  // --- Legend Drag State ---
+  const [legendPosition, setLegendPosition] = useState({ x: 325, y: 20 });
+  // --- Sidebar Collapse State ---
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   useEffect(() => {
-    const baseUrl = import.meta.env.VITE_API_BASE_URL;
-    axios.get(`${baseUrl}/api/office-zones`)
+    const saved = localStorage.getItem("legendPosition");
+    if (saved) {
+      setLegendPosition(JSON.parse(saved));
+    }
+  }, []);
+  const legendRef = useRef(null);
+
+  // Drag handlers for legend
+  const handleLegendMouseDown = (e) => {
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const { x, y } = legendPosition;
+    const handleMouseMove = (e) => {
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+      setLegendPosition({ x: x + dx, y: y + dy });
+      localStorage.setItem("legendPosition", JSON.stringify({ x: x + dx, y: y + dy }));
+    };
+    const handleMouseUp = () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+  };
+
+  // --- Sidebar Drag State ---
+  const [sidebarPosition, setSidebarPosition] = useState({ x: window.innerWidth - 320, y: 100 });
+  useEffect(() => {
+    const saved = localStorage.getItem("sidebarPosition");
+    if (saved) {
+      setSidebarPosition(JSON.parse(saved));
+    }
+  }, []);
+  const sidebarRef = useRef(null);
+  const handleSidebarMouseDown = (e) => {
+    // Only drag if mouse is on header area (top 30px or so)
+    // Optionally, you can check event target here if you want finer control
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const { x, y } = sidebarPosition;
+    const handleMouseMove = (e) => {
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+      const newPos = { x: x + dx, y: y + dy };
+      setSidebarPosition(newPos);
+      localStorage.setItem("sidebarPosition", JSON.stringify(newPos));
+    };
+    const handleMouseUp = () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+  };
+
+  // Fetch office drive-time zones by driveTime (always use /office-zones-by-range/${driveTime}, no special logic for 60)
+  useEffect(() => {
+    const baseUrl = getApiBaseUrl();
+    setLoadingZones(true);
+    axios.get(`${baseUrl}/api/office-zones-by-range/${driveTime}`)
       .then(res => {
+        console.log("🚨 Loaded drive-time zones:", driveTime, res.data);
         const uniqueZones = res.data.filter(
           (zone, index, self) =>
             index === self.findIndex(z => z.name === zone.name)
@@ -89,43 +161,16 @@ function OfficeMap() {
         uniqueZones.forEach(z => visibility[z.id] = true);
         setVisibleZones(visibility);
       })
-      .catch(err => console.error("Failed to fetch office zones:", err));
-  }, []);
-
-  // Re-generate drive time zones when driveTime changes
-  useEffect(() => {
-    const baseUrl = import.meta.env.VITE_API_BASE_URL;
-    const generateAndReload = async () => {
-      setLoadingZones(true);
-      try {
-        const updatedZones = await Promise.all(
-          officeZones.map(async zone => {
-            const { data } = await axios.post(`${baseUrl}/api/generate-office-zone/${zone.id}?minutes=${driveTime}`);
-            return {
-              id: zone.id,
-              name: zone.name,
-              geojson: data.geojson
-            };
-          })
-        );
-        const uniqueZones = updatedZones.filter(
-          (zone, index, self) =>
-            index === self.findIndex(z => z.name === zone.name)
-        );
-        setOfficeZones(uniqueZones);
-        const visibility = {};
-        uniqueZones.forEach(z => visibility[z.id] = true);
-        setVisibleZones(visibility);
-      } catch (err) {
-        console.error("Error updating office zones:", err);
-      }
-      setLoadingZones(false);
-    };
-
-    if (officeZones.length) {
-      generateAndReload();
-    }
+      .catch(err => console.error("Failed to fetch office zones:", err))
+      .finally(() => setLoadingZones(false));
   }, [driveTime]);
+
+  // --- Fetch patients and staff data ---
+  useEffect(() => {
+    const baseUrl = getApiBaseUrl();
+    axios.get(`${baseUrl}/api/patients`).then(res => setPatients(res.data));
+    axios.get(`${baseUrl}/api/staff`).then(res => setStaff(res.data));
+  }, []);
 
   // Unified effect: recenter map on service area or office zones as needed
   useEffect(() => {
@@ -154,16 +199,84 @@ function OfficeMap() {
         mapRef.current.setZoom(10);
       });
     }
-  }, [showServiceArea, showOfficeZones, driveTime, mapReady]);
+  }, [showServiceArea, showOfficeZones, driveTime, mapReady, officeZones]);
+
+  const renderToggleRow = ({ id, label, checked, onChange }) => (
+    <label
+      key={id}
+      htmlFor={id}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: "12px",
+        padding: "8px 10px",
+        borderRadius: "10px",
+        border: "1px solid rgba(148, 163, 184, 0.35)",
+        backgroundColor: "rgba(255, 255, 255, 0.75)",
+        cursor: "pointer"
+      }}
+    >
+      <span style={{ fontSize: "12px", fontWeight: 600, color: "#0f172a" }}>{label}</span>
+      <div style={{ position: "relative", width: "48px", height: "28px", flexShrink: 0 }}>
+        <input
+          id={id}
+          type="checkbox"
+          checked={checked}
+          onChange={onChange}
+          style={{
+            opacity: 0,
+            width: "48px",
+            height: "28px",
+            margin: 0,
+            position: "absolute",
+            top: 0,
+            left: 0,
+            zIndex: 2,
+            cursor: "pointer"
+          }}
+        />
+        <div
+          style={{
+            width: "100%",
+            height: "100%",
+            borderRadius: "999px",
+            backgroundColor: checked ? "#22c55e" : "#cbd5e1",
+            boxShadow: "inset 0 0 0 1px rgba(15, 23, 42, 0.10)",
+            transition: "all 0.2s ease"
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            top: "3px",
+            left: checked ? "23px" : "3px",
+            width: "22px",
+            height: "22px",
+            borderRadius: "50%",
+            backgroundColor: "#fff",
+            boxShadow: "0 2px 6px rgba(15, 23, 42, 0.22)",
+            transition: "all 0.2s ease"
+          }}
+        />
+      </div>
+    </label>
+  );
 
   return (
     <>
-      <style>
-      {`@keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-      }`}
-      </style>
+      <style>{`
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+        .label-background {
+          background-color: rgba(255, 255, 255, 0.85);
+          padding: 1px 4px;
+          border-radius: 3px;
+          text-shadow: 0 0 2px #fff;
+        }
+      `}</style>
       {loadingZones && (
         <div style={{
           position: "absolute",
@@ -189,22 +302,50 @@ function OfficeMap() {
       )}
       <div style={{
         position: "absolute",
-        top: "20px",
-        left: "20px",
+        top: "18px",
+        left: "18px",
         zIndex: 10,
-        backgroundColor: "#fff",
-        padding: "16px",
-        border: "1px solid #ccc",
-        borderRadius: "8px",
-        boxShadow: "0 2px 10px rgba(0,0,0,0.2)",
-        width: "285px"
+        backgroundColor: "rgba(255, 255, 255, 0.9)",
+        backdropFilter: "blur(10px)",
+        WebkitBackdropFilter: "blur(10px)",
+        padding: "14px",
+        border: "1px solid rgba(148, 163, 184, 0.35)",
+        borderRadius: "14px",
+        boxShadow: "0 14px 30px rgba(15, 23, 42, 0.18)",
+        width: "320px"
       }}>
+      {/* Floating Office Legend */}
+      {/* Floating Office Legend, now draggable */}
+      <div
+        ref={legendRef}
+        onMouseDown={handleLegendMouseDown}
+        style={{
+          position: "absolute",
+          top: `${legendPosition.y}px`,
+          left: `${legendPosition.x}px`,
+          backgroundColor: "rgba(15, 23, 42, 0.9)",
+          color: "#f8fafc",
+          padding: "10px 12px",
+          border: "1px solid rgba(148, 163, 184, 0.45)",
+          borderRadius: "10px",
+          boxShadow: "0 10px 24px rgba(15, 23, 42, 0.32)",
+          fontSize: "13px",
+          zIndex: 10,
+          cursor: "move"
+        }}
+      >
+        <div style={{ fontWeight: 700, marginBottom: "6px" }}>🗺 Office Legend</div>
+        <div><span style={{ color: "#e91e63" }}>●</span> Dauphin County</div>
+        <div><span style={{ color: "#3f51b5" }}>●</span> York County</div>
+        <div><span style={{ color: "#009688" }}>●</span> Lancaster County</div>
+        <div><span style={{ color: "#ff9800" }}>●</span> Schuylkill County</div>
+      </div>
         {/* Map Layer Controls */}
         <div style={{ marginBottom: "1rem" }}>
           <div style={{ marginBottom: "8px", fontWeight: "bold", fontSize: "14px" }}>
             🛠 Map Layer Controls
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
             {[
               {
                 id: "toggle-office-zones",
@@ -223,127 +364,102 @@ function OfficeMap() {
                 checked: showServiceArea,
                 onChange: () => setShowServiceArea(!showServiceArea),
                 label: "Show Service Boundary"
+              },
+              {
+                id: "toggle-patients",
+                checked: showPatients,
+                onChange: () => setShowPatients(!showPatients),
+                label: "Show Patients"
+              },
+              {
+                id: "toggle-staff",
+                checked: showStaff,
+                onChange: () => setShowStaff(!showStaff),
+                label: "Show Staff"
               }
-            ].map(({ id, checked, onChange, label }) => (
-              <div key={id} style={{ marginBottom: "2px", display: "flex", alignItems: "center", gap: "40px" }}>
-                <div style={{ position: "relative", width: "60px", height: "20px" }}>
-                  <input
-                    id={id}
-                    type="checkbox"
-                    checked={checked}
-                    onChange={onChange}
-                    style={{
-                      opacity: 0,
-                      width: "40px",
-                      height: "20px",
-                      margin: 0,
-                      position: "absolute",
-                      top: 0,
-                      left: 0,
-                      zIndex: 2,
-                      cursor: "pointer"
-                    }}
-                  />
-                  <div
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      borderRadius: "20px",
-                      backgroundColor: checked ? "#4caf50" : "#ccc",
-                      transition: "background-color 0.2s"
-                    }}
-                  />
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: "2px",
-                      left: checked ? "24px" : "2px",
-                      width: "16px",
-                      height: "16px",
-                      borderRadius: "50%",
-                      backgroundColor: "#fff",
-                      transition: "left 0.2s"
-                    }}
-                  />
-                </div>
-                <button
-                  onClick={(e) => {
-                    e.preventDefault();
-                    onChange();
-                  }}
-                  style={{
-                    padding: "6px 10px",
-                    fontSize: "12px",
-                    borderRadius: "4px",
-                    backgroundColor: "#eee",
-                    border: "1px solid #aaa",
-                    cursor: "pointer",
-                    width: "100%",
-                    textAlign: "left"
-                  }}
-                >
-                  {label}
-                </button>
-              </div>
-            ))}
+            ].map(renderToggleRow)}
           </div>
         </div>
       </div>
       <div style={{
         position: "absolute",
-        top: "240px",
-        left: "20px",
+        top: "390px",
+        left: "18px",
         zIndex: 10,
-        backgroundColor: "#fff",
-        padding: "10px",
-        border: "1px solid #ccc",
-        borderRadius: "8px",
-        boxShadow: "0 2px 10px rgba(0,0,0,0.2)",
-        maxHeight: "60vh",
+        backgroundColor: "rgba(255, 255, 255, 0.9)",
+        backdropFilter: "blur(10px)",
+        WebkitBackdropFilter: "blur(10px)",
+        padding: "12px",
+        border: "1px solid rgba(148, 163, 184, 0.35)",
+        borderRadius: "14px",
+        boxShadow: "0 14px 30px rgba(15, 23, 42, 0.18)",
+        maxHeight: "58vh",
         overflowY: "auto"
       }}>
         <div style={{ fontWeight: "bold", marginBottom: "8px" }}>📍 Offices</div>
-        {officeZones.map((zone) => (
-          <div key={zone.id} style={{ marginBottom: "6px", display: "flex", alignItems: "center", gap: "40px" }}>
-            <div style={{ position: "relative", width: "60px", height: "20px" }}>
-              <input
-                type="checkbox"
-                checked={visibleZones[zone.id]}
-                onChange={() => setVisibleZones(prev => ({ ...prev, [zone.id]: !prev[zone.id] }))}
-                style={{
-                  opacity: 0,
-                  width: "40px",
-                  height: "20px",
-                  margin: 0,
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  zIndex: 2,
-                  cursor: "pointer"
-                }}
-              />
-              <div
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  borderRadius: "20px",
-                  backgroundColor: visibleZones[zone.id] ? "#4caf50" : "#ccc",
-                  transition: "background-color 0.2s"
-                }}
-              />
-              <div
-                style={{
-                  position: "absolute",
-                  top: "2px",
-                  left: visibleZones[zone.id] ? "24px" : "2px",
-                  width: "16px",
-                  height: "16px",
-                  borderRadius: "50%",
-                  backgroundColor: "#fff",
-                  transition: "left 0.2s"
-                }}
-              />
-            </div>
+        {officeZones
+          .filter(zone => ![3, 7].includes(zone.id))
+          .map((zone) => (
+          <div key={zone.id} style={{ marginBottom: "8px", display: "flex", alignItems: "center", gap: "8px" }}>
+            <label
+              htmlFor={`toggle-office-${zone.id}`}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: "12px",
+                flex: 1,
+                padding: "8px 10px",
+                borderRadius: "10px",
+                border: "1px solid rgba(148, 163, 184, 0.35)",
+                backgroundColor: "rgba(255, 255, 255, 0.75)",
+                cursor: "pointer"
+              }}
+            >
+              <span style={{ fontSize: "12px", fontWeight: 600, color: "#0f172a" }}>{zone.name}</span>
+              <div style={{ position: "relative", width: "48px", height: "28px", flexShrink: 0 }}>
+                <input
+                  id={`toggle-office-${zone.id}`}
+                  type="checkbox"
+                  checked={visibleZones[zone.id]}
+                  onChange={() => setVisibleZones(prev => ({ ...prev, [zone.id]: !prev[zone.id] }))}
+                  style={{
+                    opacity: 0,
+                    width: "48px",
+                    height: "28px",
+                    margin: 0,
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    zIndex: 2,
+                    cursor: "pointer"
+                  }}
+                />
+                <div
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    borderRadius: "999px",
+                    backgroundColor: visibleZones[zone.id] ? "#22c55e" : "#cbd5e1",
+                    boxShadow: "inset 0 0 0 1px rgba(15, 23, 42, 0.10)",
+                    transition: "all 0.2s ease"
+                  }}
+                />
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "3px",
+                    left: visibleZones[zone.id] ? "23px" : "3px",
+                    width: "22px",
+                    height: "22px",
+                    borderRadius: "50%",
+                    backgroundColor: "#fff",
+                    boxShadow: "0 2px 6px rgba(15, 23, 42, 0.22)",
+                    transition: "all 0.2s ease"
+                  }}
+                />
+              </div>
+            </label>
             <button
               onClick={() => {
                 if (zone.geojson?.geometry?.coordinates?.[0]) {
@@ -355,275 +471,243 @@ function OfficeMap() {
                 }
               }}
               style={{
-                padding: "6px 10px",
-                fontSize: "12px",
-                borderRadius: "4px",
-                backgroundColor: "#eee",
-                border: "1px solid #aaa",
+                padding: "8px 10px",
+                fontSize: "11px",
+                fontWeight: 700,
+                borderRadius: "10px",
+                backgroundColor: "#0f172a",
+                color: "#f8fafc",
+                border: "1px solid rgba(148, 163, 184, 0.35)",
                 cursor: "pointer",
-                width: "100%",
-                textAlign: "left"
+                boxShadow: "0 4px 10px rgba(15, 23, 42, 0.22)"
               }}
             >
-              {zone.name}
+              Focus
             </button>
           </div>
         ))}
         <div style={{ marginTop: "12px" }}>
-          <div style={{ fontWeight: "bold", marginBottom: "6px" }}>🕒 Drive Time Radius</div>
-          <div>
-            {["15", "30", "45", "60"].map(min => (
-              <div key={min} style={{ marginBottom: "6px", display: "flex", alignItems: "center", gap: "40px" }}>
-                <div style={{ position: "relative", width: "60px", height: "20px" }}>
-                  <input
-                    type="checkbox"
-                    checked={driveTime === min}
-                    onChange={() => setDriveTime(min)}
-                    style={{
-                      opacity: 0,
-                      width: "40px",
-                      height: "20px",
-                      margin: 0,
-                      position: "absolute",
-                      top: 0,
-                      left: 0,
-                      zIndex: 2,
-                      cursor: "pointer"
-                    }}
-                  />
-                  <div style={{
-                    width: "100%",
-                    height: "100%",
-                    borderRadius: "20px",
-                    backgroundColor: driveTime === min ? "#4caf50" : "#ccc",
-                    transition: "background-color 0.2s"
-                  }} />
-                  <div style={{
-                    position: "absolute",
-                    top: "2px",
-                    left: driveTime === min ? "24px" : "2px",
-                    width: "16px",
-                    height: "16px",
-                    borderRadius: "50%",
-                    backgroundColor: "#fff",
-                    transition: "left 0.2s"
-                  }} />
-                </div>
+          <div style={{ fontWeight: 700, marginBottom: "6px" }}>🕒 Drive Time Radius</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "8px" }}>
+            {["15", "30", "45", "60"].map(min => {
+              const active = driveTime === min;
+              return (
                 <button
+                  key={min}
                   onClick={() => setDriveTime(min)}
                   style={{
-                    padding: "6px 10px",
+                    padding: "8px 10px",
                     fontSize: "12px",
-                    borderRadius: "4px",
-                    backgroundColor: "#eee",
-                    border: "1px solid #aaa",
-                    cursor: "pointer",
-                    width: "100%",
-                    textAlign: "left"
+                    fontWeight: 700,
+                    borderRadius: "10px",
+                    backgroundColor: active ? "#22c55e" : "rgba(255, 255, 255, 0.92)",
+                    color: active ? "#ffffff" : "#0f172a",
+                    border: active ? "1px solid #16a34a" : "1px solid rgba(148, 163, 184, 0.45)",
+                    boxShadow: active
+                      ? "0 6px 14px rgba(34, 197, 94, 0.28)"
+                      : "0 4px 10px rgba(15, 23, 42, 0.08)",
+                    cursor: "pointer"
                   }}
                 >
-                  {min} Minutes
+                  {min} min
                 </button>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
         <div style={{ marginTop: "12px" }}>
-          <div style={{ fontWeight: "bold", marginBottom: "6px" }}>🧑‍🤝‍🧑 Team Visibility</div>
-          <div style={{ marginBottom: "6px", display: "flex", alignItems: "center", gap: "40px" }}>
-            <div style={{ position: "relative", width: "60px", height: "20px" }}>
-              <input
-                type="checkbox"
-                checked={showTeams}
-                onChange={() => {
-                  const newState = !showTeams;
-                  setShowTeams(newState);
-                  setShowTeamLabels(newState);
-                  const updated = {
-                    "team-chickadee": newState,
-                    "team-dragonfly": newState,
-                    "team-ladybug": newState,
-                    "team-orange": newState,
-                    "team-purple": newState,
-                    "team-emerald": newState,
-                    "team-blue": newState
-                  };
-                  setVisibleZones(prevZones => ({ ...prevZones, ...updated }));
-                }}
-                style={{
-                  opacity: 0,
-                  width: "40px",
-                  height: "20px",
-                  margin: 0,
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  zIndex: 2,
-                  cursor: "pointer"
-                }}
-              />
-              <div style={{
-                width: "100%",
-                height: "100%",
-                borderRadius: "20px",
-                backgroundColor: showTeams ? "#4caf50" : "#ccc",
-                transition: "background-color 0.2s"
-              }} />
-              <div style={{
-                position: "absolute",
-                top: "2px",
-                left: showTeams ? "24px" : "2px",
-                width: "16px",
-                height: "16px",
-                borderRadius: "50%",
-                backgroundColor: "#fff",
-                transition: "left 0.2s"
-              }} />
-            </div>
-            <button
-              onClick={() => {
-                const newState = !showTeams;
-                setShowTeams(newState);
-                setShowTeamLabels(newState);
-                const updated = {
-                  "team-chickadee": newState,
-                  "team-dragonfly": newState,
-                  "team-ladybug": newState,
-                  "team-orange": newState,
-                  "team-purple": newState,
-                  "team-emerald": newState,
-                  "team-blue": newState
-                };
-                setVisibleZones(prevZones => ({ ...prevZones, ...updated }));
-              }}
-              style={{
-                padding: "6px 10px",
-                fontSize: "12px",
-                borderRadius: "4px",
-                backgroundColor: "#eee",
-                border: "1px solid #aaa",
-                cursor: "pointer",
-                width: "100%",
-                textAlign: "left"
-              }}
-            >
-              Show Team Territories
-            </button>
+          <div style={{ fontWeight: 700, marginBottom: "6px" }}>🧑‍🤝‍🧑 Team Visibility</div>
+          {renderToggleRow({
+            id: "toggle-show-teams",
+            label: "Show Team Territories",
+            checked: showTeams,
+            onChange: () => {
+              const newState = !showTeams;
+              setShowTeams(newState);
+              setShowTeamLabels(newState);
+              const updated = {
+                "team-chickadee": newState,
+                "team-dragonfly": newState,
+                "team-ladybug": newState,
+                "team-orange": newState,
+                "team-purple": newState,
+                "team-emerald": newState,
+                "team-blue": newState
+              };
+              setVisibleZones(prevZones => ({ ...prevZones, ...updated }));
+            }
+          })}
+          <div style={{ marginTop: "6px" }}>
+            {renderToggleRow({
+              id: "toggle-show-team-labels",
+              label: "Show Team Labels",
+              checked: showTeamLabels,
+              onChange: () => setShowTeamLabels(!showTeamLabels)
+            })}
           </div>
-          <div style={{ marginBottom: "6px", display: "flex", alignItems: "center", gap: "40px" }}>
-            <div style={{ position: "relative", width: "60px", height: "20px" }}>
-              <input
-                type="checkbox"
-                checked={showTeamLabels}
-                onChange={() => setShowTeamLabels(!showTeamLabels)}
-                style={{
-                  opacity: 0,
-                  width: "40px",
-                  height: "20px",
-                  margin: 0,
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  zIndex: 2,
-                  cursor: "pointer"
-                }}
-              />
-              <div style={{
-                width: "100%",
-                height: "100%",
-                borderRadius: "20px",
-                backgroundColor: showTeamLabels ? "#4caf50" : "#ccc",
-                transition: "background-color 0.2s"
-              }} />
-              <div style={{
-                position: "absolute",
-                top: "2px",
-                left: showTeamLabels ? "24px" : "2px",
-                width: "16px",
-                height: "16px",
-                borderRadius: "50%",
-                backgroundColor: "#fff",
-                transition: "left 0.2s"
-              }} />
-            </div>
-            <button
-              onClick={() => setShowTeamLabels(!showTeamLabels)}
-              style={{
-                padding: "6px 10px",
-                fontSize: "12px",
-                borderRadius: "4px",
-                backgroundColor: "#eee",
-                border: "1px solid #aaa",
-                cursor: "pointer",
-                width: "100%",
-                textAlign: "left"
-              }}
-            >
-              Show Team Labels
-            </button>
+          <div style={{ marginTop: "6px", display: "flex", flexDirection: "column", gap: "6px" }}>
+            {[
+              { id: "team-chickadee", label: "Chickadee" },
+              { id: "team-dragonfly", label: "Dragonfly" },
+              { id: "team-ladybug", label: "Ladybug" },
+              { id: "team-orange", label: "Orange" },
+              { id: "team-purple", label: "Purple" },
+              { id: "team-emerald", label: "Emerald" },
+              { id: "team-blue", label: "Blue" }
+            ].map(({ id, label }) =>
+              renderToggleRow({
+                id: `toggle-${id}`,
+                label,
+                checked: visibleZones[id] ?? true,
+                onChange: () => setVisibleZones(prev => ({ ...prev, [id]: !prev[id] }))
+              })
+            )}
           </div>
-          {[
-            { id: "team-chickadee", label: "Chickadee" },
-            { id: "team-dragonfly", label: "Dragonfly" },
-            { id: "team-ladybug", label: "Ladybug" },
-            { id: "team-orange", label: "Orange" },
-            { id: "team-purple", label: "Purple" },
-            { id: "team-emerald", label: "Emerald" },
-            { id: "team-blue", label: "Blue" }
-          ].map(({ id, label }) => (
-            <div key={id} style={{ marginBottom: "6px", display: "flex", alignItems: "center", gap: "40px" }}>
-              <div style={{ position: "relative", width: "60px", height: "20px" }}>
-                <input
-                  type="checkbox"
-                  checked={visibleZones[id] ?? true}
-                  onChange={() => setVisibleZones(prev => ({ ...prev, [id]: !prev[id] }))}
-                  style={{
-                    opacity: 0,
-                    width: "40px",
-                    height: "20px",
-                    margin: 0,
-                    position: "absolute",
-                    top: 0,
-                    left: 0,
-                    zIndex: 2,
-                    cursor: "pointer"
-                  }}
-                />
-                <div style={{
-                  width: "100%",
-                  height: "100%",
-                  borderRadius: "20px",
-                  backgroundColor: visibleZones[id] ? "#4caf50" : "#ccc",
-                  transition: "background-color 0.2s"
-                }} />
-                <div style={{
-                  position: "absolute",
-                  top: "2px",
-                  left: visibleZones[id] ? "24px" : "2px",
-                  width: "16px",
-                  height: "16px",
-                  borderRadius: "50%",
-                  backgroundColor: "#fff",
-                  transition: "left 0.2s"
-                }} />
+        </div>
+      </div>
+      {/* Staff Assignment Sidebar (Draggable, Collapsible) */}
+      <div
+        ref={sidebarRef}
+        onMouseDown={handleSidebarMouseDown}
+        style={{
+          position: "absolute",
+          left: `${sidebarPosition.x}px`,
+          top: `${sidebarPosition.y}px`,
+          width: "340px",
+          maxHeight: "85vh",
+          overflowY: "auto",
+          backgroundColor: "rgba(255, 255, 255, 0.94)",
+          backdropFilter: "blur(10px)",
+          WebkitBackdropFilter: "blur(10px)",
+          padding: "14px",
+          border: "1px solid rgba(148, 163, 184, 0.35)",
+          borderRadius: "14px",
+          boxShadow: "0 14px 30px rgba(15, 23, 42, 0.2)",
+          zIndex: 20,
+          cursor: "move",
+          paddingBottom: "24px"
+        }}
+      >
+        <button
+          onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+          style={{
+            position: "absolute",
+            top: "8px",
+            right: "8px",
+            fontSize: "16px",
+            fontWeight: "bold",
+            backgroundColor: "#0f172a",
+            color: "#f8fafc",
+            border: "1px solid rgba(148, 163, 184, 0.4)",
+            borderRadius: "8px",
+            padding: "2px 8px",
+            cursor: "pointer",
+            boxShadow: "0 4px 12px rgba(15,23,42,0.25)"
+          }}
+          title={sidebarCollapsed ? "Expand" : "Collapse"}
+        >
+          {sidebarCollapsed ? "▸" : "▾"}
+        </button>
+        <div style={{ fontWeight: "bold", marginBottom: "8px", fontSize: "16px" }}>
+          🧑‍⚕️ Staff Assignments
+        </div>
+        <div style={{
+          overflowY: "auto",
+          maxHeight: sidebarCollapsed ? "0px" : "400px",
+          transition: "max-height 0.3s ease-in-out",
+          overflow: sidebarCollapsed ? "hidden" : "auto",
+          paddingRight: "4px"
+        }}>
+          {staff.map(s => {
+            const assignedPatients = patients.filter(p => p.assigned_staff_id === s.staff_id);
+            return (
+              <div key={s.staff_id} style={{ marginBottom: "12px" }}>
+                <div style={{ fontWeight: "bold" }}>{s.name}</div>
+                <label style={{ fontSize: "13px", color: "#333", display: "block" }}>
+                  <input
+                    type="checkbox"
+                    checked={!!s.avoid_home_zone}
+                    onChange={async (e) => {
+                      const baseUrl = getApiBaseUrl();
+                      const newValue = e.target.checked;
+                      try {
+                        await axios.patch(`${baseUrl}/api/staff/${s.staff_id}/avoid-home-zone`, {
+                          avoid_home_zone: newValue
+                        });
+
+                        const [staffRes, patientsRes] = await Promise.all([
+                          axios.get(`${baseUrl}/api/staff`),
+                          axios.get(`${baseUrl}/api/patients`)
+                        ]);
+                        setStaff(staffRes.data);
+                        setPatients(patientsRes.data);
+                      } catch (err) {
+                        toast.error("Failed to update avoid home zone");
+                      }
+                    }}
+                    style={{ marginRight: "6px" }}
+                  />
+                  Avoid Home Zone
+                </label>
+                <div style={{ marginTop: "4px", fontSize: "12px", color: "#333", display: "flex", alignItems: "center", gap: "6px" }}>
+                  Radius (mi)
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.5"
+                    value={s.avoid_home_radius_miles ?? 2}
+                    onChange={(e) => {
+                      const raw = e.target.value;
+                      setStaff(prev =>
+                        prev.map(st =>
+                          st.staff_id === s.staff_id
+                            ? { ...st, avoid_home_radius_miles: raw === "" ? "" : Number(raw) }
+                            : st
+                        )
+                      );
+                    }}
+                    onBlur={async (e) => {
+                      const baseUrl = getApiBaseUrl();
+                      const parsed = Number(e.target.value);
+                      const safeRadius = Number.isFinite(parsed) && parsed >= 0 ? parsed : 2;
+
+                      setStaff(prev =>
+                        prev.map(st =>
+                          st.staff_id === s.staff_id
+                            ? { ...st, avoid_home_radius_miles: safeRadius }
+                            : st
+                        )
+                      );
+
+                      try {
+                        await axios.patch(`${baseUrl}/api/staff/${s.staff_id}/avoid-home-zone`, {
+                          avoid_home_radius_miles: safeRadius
+                        });
+
+                        const [staffRes, patientsRes] = await Promise.all([
+                          axios.get(`${baseUrl}/api/staff`),
+                          axios.get(`${baseUrl}/api/patients`)
+                        ]);
+                        setStaff(staffRes.data);
+                        setPatients(patientsRes.data);
+                      } catch (err) {
+                        toast.error("Failed to update avoid-home radius");
+                      }
+                    }}
+                    style={{ width: "64px", padding: "2px 6px", fontSize: "12px" }}
+                  />
+                </div>
+                <div style={{ fontSize: "13px", color: "#666", marginTop: "4px" }}>
+                  {assignedPatients.length} patient{assignedPatients.length !== 1 ? "s" : ""}
+                </div>
+                <ul style={{ marginTop: "4px", paddingLeft: "16px", fontSize: "13px" }}>
+                  {assignedPatients.map(p => (
+                    <li key={p.patient_id}>{p.name}</li>
+                  ))}
+                </ul>
               </div>
-              <button
-                onClick={() => setVisibleZones(prev => ({ ...prev, [id]: !prev[id] }))}
-                style={{
-                  padding: "6px 10px",
-                  fontSize: "12px",
-                  borderRadius: "4px",
-                  backgroundColor: "#eee",
-                  border: "1px solid #aaa",
-                  cursor: "pointer",
-                  width: "100%",
-                  textAlign: "left"
-                }}
-              >
-                {label}
-              </button>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
       <LoadScript googleMapsApiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY}>
@@ -636,7 +720,9 @@ function OfficeMap() {
           }}
         >
           {/* --- Office drive-time polygons --- */}
-          {officeZones.map((zone, index) => {
+          {officeZones
+            .filter(zone => ![3, 7].includes(zone.id))
+            .map((zone, index) => {
             const coords = zone.geojson.geometry.coordinates[0].map(([lng, lat]) => ({ lat, lng }));
             let centerLat = coords.reduce((sum, c) => sum + c.lat, 0) / coords.length;
             let centerLng = coords.reduce((sum, c) => sum + c.lng, 0) / coords.length;
@@ -655,7 +741,7 @@ function OfficeMap() {
                     paths={coords}
                     options={{
                       fillColor: clusterColors[index % Object.keys(clusterColors).length] || "gray",
-                      fillOpacity: 0.25,
+                      fillOpacity: 0.15,
                       strokeColor: "#444",
                       strokeOpacity: 0.7,
                       strokeWeight: 2
@@ -670,14 +756,16 @@ function OfficeMap() {
                     <div style={{
                       display: "inline-flex",
                       alignItems: "center",
-                      padding: "4px 8px",
+                      padding: "6px 10px",
                       whiteSpace: "nowrap",
-                      backgroundColor: "black",
-                      borderRadius: "6px",
-                      fontSize: "13px",
-                      fontWeight: "bold",
-                      color: "#fff",
-                      textShadow: "1px 1px 2px rgba(0,0,0,0.6)",
+                      backgroundColor: "rgba(255, 255, 255, 0.96)",
+                      borderRadius: "8px",
+                      border: "1px solid rgba(17, 24, 39, 0.35)",
+                      fontSize: "14px",
+                      fontWeight: 700,
+                      color: "#111827",
+                      textShadow: "none",
+                      boxShadow: "0 2px 8px rgba(0, 0, 0, 0.18)",
                       fontFamily: "'Segoe UI', Arial, sans-serif",
                       zIndex: 9999
                     }}>
@@ -991,11 +1079,112 @@ function OfficeMap() {
               )}
             </>
           )}
+        {/* --- Patients Markers --- */}
+        {/*
+          Office color mapping for patient pins:
+            1: "#e91e63" // Dauphin
+            2: "#3f51b5" // York
+            3: "#4caf50" // Lancaster
+            4: "#ff9800" // Schuylkill
+            6: "#009688" // Teal for Office 6
+        */}
+        {(() => {
+          const officeColors = {
+            1: "#3f51b5", // York County
+            4: "#e91e63", // Dauphin County
+            5: "#ff9800", // Schuylkill County
+            6: "#009688"  // Lancaster County
+          };
+          const officeTitles = {
+            1: "York County",
+            4: "Dauphin County",
+            5: "Schuylkill County",
+            6: "Lancaster County"
+          };
+          // Add mapping from staff_id to staff name
+          const staffById = {};
+          staff.forEach(s => {
+            staffById[s.staff_id] = s.name;
+          });
+          return (
+            showPatients &&
+            patients.map(p => {
+              // Filter out patients not assigned to valid office IDs 1,4,5,6
+              if (![1, 4, 5, 6].includes(parseInt(p.assigned_office_id))) return null;
+              console.log("Rendering patient:", p.name, "assigned to office", p.assigned_office_id);
+              const assignedNurse = staffById[p.assigned_staff_id] || "Unassigned";
+              return (
+                <Marker
+                  key={`patient-${p.patient_id}`}
+                  position={{ lat: p.latitude, lng: p.longitude }}
+                  icon={{
+                    path: window.google && window.google.maps ? window.google.maps.SymbolPath.CIRCLE : 0,
+                    scale: 7,
+                    fillColor: officeColors[parseInt(p.assigned_office_id)] || "#999",
+                    fillOpacity: 0.8,
+                    strokeColor: "#fff",
+                    strokeWeight: 2
+                  }}
+                  title={`Patient Name: ${p.name}\nService Type: ${p.type_of_care}\nAssigned Office: ${officeTitles[parseInt(p.assigned_office_id)] || "Unassigned"}\nAssigned Nurse: ${assignedNurse}`}
+                />
+              );
+            })
+          );
+        })()}
+
+        {/* --- Staff Markers --- */}
+        {(() => {
+          // Compute patients per staff_id (names)
+          const patientsByStaffId = {};
+          patients.forEach(p => {
+            if (p.assigned_staff_id && p.name) {
+              const sid = parseInt(p.assigned_staff_id);
+              if (!patientsByStaffId[sid]) patientsByStaffId[sid] = [];
+              patientsByStaffId[sid].push(p.name);
+            }
+          });
+          const officeColors = {
+            1: "#3f51b5", // York County
+            4: "#e91e63", // Dauphin County
+            5: "#ff9800", // Schuylkill County
+            6: "#009688"  // Lancaster County
+          };
+          const officeTitles = {
+            1: "York County",
+            4: "Dauphin County",
+            5: "Schuylkill County",
+            6: "Lancaster County"
+          };
+          const staffIconsByOffice = {
+            1: yorkIcon,
+            4: dauphinIcon,
+            5: schuylkillIcon,
+            6: lancasterIcon
+          };
+          return (
+            showStaff && staff.map(s => {
+              const officeIdNum = parseInt(s.assigned_office_id);
+              const assignedOffice = officeTitles[officeIdNum] || "Unassigned";
+              const patientList = patientsByStaffId[s.staff_id] || [];
+              return (
+                <Marker
+                  key={`staff-${s.staff_id}`}
+                  position={{ lat: s.latitude, lng: s.longitude }}
+                  icon={{
+                    url: staffIconsByOffice[officeIdNum] || personIcon,
+                    scaledSize: new window.google.maps.Size(30, 30),
+                    anchor: new window.google.maps.Point(15, 15)
+                  }}
+                  title={`Staff: ${s.name}\nAssigned Office: ${assignedOffice}\nAssigned Patients (${patientList.length}):\n${patientList.join(", ")}`}
+                />
+              );
+            })
+          );
+        })()}
         </GoogleMap>
       </LoadScript>
     </>
   );
 }
-
 
 export default OfficeMap;

@@ -50,6 +50,18 @@ Frontend runs at:
 
 ---
 
+## ⚡ One-command PA demo import (local)
+
+From `backend/`, run:
+
+```bash
+./scripts/seed_pa_demo.sh
+```
+
+This will reset local `staff` + `patients`, upsert PA offices (York, Dauphin, Schuylkill, Lancaster), and regenerate drive-time polygons if `ORS_API_KEY` is present.
+
+---
+
 ## 🗂 Example CSV Files
 
 - `backend/data/patients.csv`
