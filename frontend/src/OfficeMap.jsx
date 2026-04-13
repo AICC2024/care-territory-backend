@@ -84,6 +84,8 @@ function OfficeMap() {
   const [staff, setStaff] = useState([]);
   const [showPatients, setShowPatients] = useState(true);
   const [showStaff, setShowStaff] = useState(true);
+  const [focusedPatientId, setFocusedPatientId] = useState(null);
+  const [focusedStaffId, setFocusedStaffId] = useState(null);
   // --- Legend Drag State ---
   const [legendPosition, setLegendPosition] = useState({ x: 325, y: 20 });
   // --- Sidebar Collapse State ---
@@ -272,10 +274,14 @@ function OfficeMap() {
 
   const focusOnStaff = (staffMember) => {
     focusOnPoint(staffMember?.latitude, staffMember?.longitude, 12);
+    setFocusedStaffId(staffMember?.staff_id ?? null);
+    setFocusedPatientId(null);
   };
 
   const focusOnPatient = (patient) => {
     focusOnPoint(patient?.latitude, patient?.longitude, 13);
+    setFocusedPatientId(patient?.patient_id ?? null);
+    setFocusedStaffId(null);
   };
 
   return (
@@ -496,8 +502,9 @@ function OfficeMap() {
                 cursor: "pointer",
                 boxShadow: "0 4px 10px rgba(15, 23, 42, 0.22)"
               }}
+              title="Focus office"
             >
-              Focus
+              ⌖
             </button>
           </div>
         ))}
@@ -656,8 +663,9 @@ function OfficeMap() {
                       color: "#f8fafc",
                       cursor: "pointer"
                     }}
+                    title="Focus nurse"
                   >
-                    Focus
+                    ⌖
                   </button>
                 </div>
                 <label style={{ fontSize: "13px", color: "#333", display: "block" }}>
@@ -758,8 +766,9 @@ function OfficeMap() {
                           color: "#0f172a",
                           cursor: "pointer"
                         }}
+                        title="Focus patient"
                       >
-                        Focus
+                        ⌖
                       </button>
                     </li>
                   ))}
@@ -1169,20 +1178,44 @@ function OfficeMap() {
             showPatients &&
             patients.map(p => {              console.log("Rendering patient:", p.name, "assigned to office", p.assigned_office_id);
               const assignedNurse = staffById[p.assigned_staff_id] || "Unassigned";
+              const position = { lat: Number(p.latitude), lng: Number(p.longitude) };
               return (
-                <Marker
-                  key={`patient-${p.patient_id}`}
-                  position={{ lat: p.latitude, lng: p.longitude }}
-                  icon={{
-                    path: window.google && window.google.maps ? window.google.maps.SymbolPath.CIRCLE : 0,
-                    scale: 7,
-                    fillColor: officeColors[parseInt(p.assigned_office_id)] || "#6b7280",
-                    fillOpacity: 0.8,
-                    strokeColor: "#fff",
-                    strokeWeight: 2
-                  }}
-                  title={`Patient Name: ${p.name}\nService Type: ${p.type_of_care}\nAssigned Office: ${officeTitles[parseInt(p.assigned_office_id)] || "Unassigned"}\nAssigned Nurse: ${assignedNurse}`}
-                />
+                <React.Fragment key={`patient-${p.patient_id}`}>
+                  <Marker
+                    position={position}
+                    icon={{
+                      path: window.google && window.google.maps ? window.google.maps.SymbolPath.CIRCLE : 0,
+                      scale: 7,
+                      fillColor: officeColors[parseInt(p.assigned_office_id)] || "#6b7280",
+                      fillOpacity: 0.8,
+                      strokeColor: "#fff",
+                      strokeWeight: 2
+                    }}
+                    title={`Patient Name: ${p.name}
+Service Type: ${p.type_of_care}
+Assigned Office: ${officeTitles[parseInt(p.assigned_office_id)] || "Unassigned"}
+Assigned Nurse: ${assignedNurse}`}
+                  />
+                  {focusedPatientId === p.patient_id && (
+                    <OverlayView position={position} mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}>
+                      <div style={{
+                        marginLeft: "10px",
+                        transform: "translateY(-12px)",
+                        background: "rgba(15, 23, 42, 0.9)",
+                        color: "#fff",
+                        fontSize: "11px",
+                        fontWeight: 700,
+                        borderRadius: "999px",
+                        padding: "4px 8px",
+                        whiteSpace: "nowrap",
+                        border: "1px solid rgba(148, 163, 184, 0.5)",
+                        boxShadow: "0 4px 10px rgba(15, 23, 42, 0.24)"
+                      }}>
+                        {p.name}
+                      </div>
+                    </OverlayView>
+                  )}
+                </React.Fragment>
               );
             })
           );
@@ -1222,17 +1255,41 @@ function OfficeMap() {
               const officeIdNum = parseInt(s.assigned_office_id);
               const assignedOffice = officeTitles[officeIdNum] || "Unassigned";
               const patientList = patientsByStaffId[s.staff_id] || [];
+              const position = { lat: Number(s.latitude), lng: Number(s.longitude) };
               return (
-                <Marker
-                  key={`staff-${s.staff_id}`}
-                  position={{ lat: s.latitude, lng: s.longitude }}
-                  icon={{
-                    url: staffIconsByOffice[officeIdNum] || personIcon,
-                    scaledSize: new window.google.maps.Size(30, 30),
-                    anchor: new window.google.maps.Point(15, 15)
-                  }}
-                  title={`Staff: ${s.name}\nAssigned Office: ${assignedOffice}\nAssigned Patients (${patientList.length}):\n${patientList.join(", ")}`}
-                />
+                <React.Fragment key={`staff-${s.staff_id}`}>
+                  <Marker
+                    position={position}
+                    icon={{
+                      url: staffIconsByOffice[officeIdNum] || personIcon,
+                      scaledSize: new window.google.maps.Size(30, 30),
+                      anchor: new window.google.maps.Point(15, 15)
+                    }}
+                    title={`Staff: ${s.name}
+Assigned Office: ${assignedOffice}
+Assigned Patients (${patientList.length}):
+${patientList.join(", ")}`}
+                  />
+                  {focusedStaffId === s.staff_id && (
+                    <OverlayView position={position} mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}>
+                      <div style={{
+                        marginLeft: "14px",
+                        transform: "translateY(-16px)",
+                        background: "rgba(15, 23, 42, 0.9)",
+                        color: "#fff",
+                        fontSize: "11px",
+                        fontWeight: 700,
+                        borderRadius: "999px",
+                        padding: "4px 8px",
+                        whiteSpace: "nowrap",
+                        border: "1px solid rgba(148, 163, 184, 0.5)",
+                        boxShadow: "0 4px 10px rgba(15, 23, 42, 0.24)"
+                      }}>
+                        {s.name}
+                      </div>
+                    </OverlayView>
+                  )}
+                </React.Fragment>
               );
             })
           );
