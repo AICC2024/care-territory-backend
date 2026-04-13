@@ -1006,12 +1006,15 @@ def get_office_zones_by_range(minutes):
     if minutes not in valid_ranges:
         return jsonify({"error": "Invalid time range"}), 400
 
-    if minutes == 60:
-        column_expr = "COALESCE(geojson_zone_60, geojson_zone)"
-    else:
-        column_expr = f"COALESCE(geojson_zone_{minutes}, geojson_zone)"
-
     conn = get_connection()
+    office_columns = get_table_columns(conn, "offices")
+
+    derived_column = f"geojson_zone_{minutes}"
+    if derived_column in office_columns:
+        column_expr = f"COALESCE({derived_column}, geojson_zone)"
+    else:
+        column_expr = "geojson_zone"
+
     cur = conn.cursor()
     cur.execute(f"""
         SELECT id, name, {column_expr} AS geojson_value
