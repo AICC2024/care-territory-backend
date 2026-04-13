@@ -956,21 +956,21 @@ def get_office_zones():
 # --- Route for office zones by time range ---
 @app.route("/api/office-zones-by-range/<int:minutes>")
 def get_office_zones_by_range(minutes):
-    # Accept geojson_zone for 60min, otherwise geojson_zone_{minutes}
-    # Validate column
-    if f"geojson_zone_{minutes}" not in ["geojson_zone_15", "geojson_zone_30", "geojson_zone_45", "geojson_zone_60", "geojson_zone"]:
+    valid_ranges = [15, 30, 45, 60]
+    if minutes not in valid_ranges:
         return jsonify({"error": "Invalid time range"}), 400
+
     if minutes == 60:
-        column = "geojson_zone"
+        column_expr = "COALESCE(geojson_zone_60, geojson_zone)"
     else:
-        column = f"geojson_zone_{minutes}"
+        column_expr = f"COALESCE(geojson_zone_{minutes}, geojson_zone)"
 
     conn = get_connection()
     cur = conn.cursor()
     cur.execute(f"""
-        SELECT id, name, {column}
+        SELECT id, name, {column_expr} AS geojson_value
         FROM offices
-        WHERE {column} IS NOT NULL
+        WHERE {column_expr} IS NOT NULL
     """)
     rows = cur.fetchall()
     cur.close()

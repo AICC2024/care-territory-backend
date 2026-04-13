@@ -150,9 +150,7 @@ function OfficeMap() {
     const baseUrl = getApiBaseUrl();
     setLoadingZones(true);
     axios.get(`${baseUrl}/api/office-zones-by-range/${driveTime}`)
-      .then(res => {
-        console.log("🚨 Loaded drive-time zones:", driveTime, res.data);
-        const uniqueZones = res.data.filter(
+      .then(res => {        const uniqueZones = res.data.filter(
           (zone, index, self) =>
             index === self.findIndex(z => z.name === zone.name)
         );
@@ -1108,10 +1106,7 @@ function OfficeMap() {
           });
           return (
             showPatients &&
-            patients.map(p => {
-              // Filter out patients not assigned to valid office IDs 1,4,5,6
-              if (![1, 4, 5, 6].includes(parseInt(p.assigned_office_id))) return null;
-              console.log("Rendering patient:", p.name, "assigned to office", p.assigned_office_id);
+            patients.map(p => {              console.log("Rendering patient:", p.name, "assigned to office", p.assigned_office_id);
               const assignedNurse = staffById[p.assigned_staff_id] || "Unassigned";
               return (
                 <Marker
@@ -1120,7 +1115,7 @@ function OfficeMap() {
                   icon={{
                     path: window.google && window.google.maps ? window.google.maps.SymbolPath.CIRCLE : 0,
                     scale: 7,
-                    fillColor: officeColors[parseInt(p.assigned_office_id)] || "#999",
+                    fillColor: officeColors[parseInt(p.assigned_office_id)] || "#6b7280",
                     fillOpacity: 0.8,
                     strokeColor: "#fff",
                     strokeWeight: 2
